@@ -62,7 +62,7 @@ for ep in range(nepochs):
     nembeds+=1
   # generate data
   x_int,ytarget = task.gen_seq(train_seqlen)
-  ytarget = tr.LongTensor(ytarget).unsqueeze(1)
+  ytarget = tr.LongTensor(ytarget).unsqueeze(1).to(device)
   x_embeds = Emat[x_int].unsqueeze(1) 
   # forward prop
   yhat = net(x_embeds)
@@ -79,6 +79,7 @@ for ep in range(nepochs):
   L[ep] = epoch_loss
   A[ep] = acc
   E[ep] = nembeds
+  
 
 
 
