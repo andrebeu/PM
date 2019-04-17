@@ -33,6 +33,11 @@ elif arch=='wmem':
   net = Net_wmem(edim,stsize,outdim,seed)
 task = NBackPMTask(nback,num_og_tokens,num_pm_trials,seed)
 
+## look for gpu
+try: net.cuda()
+except:
+  print('gpu not found')
+  pass
 
 ## train
 print('training')
