@@ -29,9 +29,9 @@ print(fpath)
 
 ## look for gpu
 device = tr.device("cuda:0" if tr.cuda.is_available() else "cpu")
-if device !='cpu':
+if device != tr.device('cpu'):
   tr.set_default_tensor_type(tr.cuda.FloatTensor)
-  
+
 ## initialize model and task
 if arch=='purewm':
   net = Net(edim,stsize,outdim,seed)
@@ -77,7 +77,7 @@ for ep in range(nepochs):
   for yh,yt in zip(yhat,ytarget):
     loss += lossop(yh,yt)
     acc += yt==tr.argmax(tr.softmax(yh,1))
-  acc = acc.numpy()/train_seqlen
+  acc = acc.cpu().numpy()/train_seqlen
   # bp and update
   loss.backward()
   optiop.step()
