@@ -35,6 +35,7 @@ task = NBackPMTask(nback,num_og_tokens,num_pm_trials,seed)
 
 ## look for gpu
 device = tr.device("cuda:0" if tr.cuda.is_available() else "cpu")
+net = net.to(device)
 
 ## train
 print('training',device)
