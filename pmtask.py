@@ -26,6 +26,12 @@ pm_loss_weight = 1
 fpath = 'model_data/%s_%i-pmtrials_%i-seqlen_%i-seed_%i'%(
           arch,stsize,num_pm_trials,train_seqlen,seed)
 print(fpath)
+
+## look for gpu
+device = tr.device("cuda:0" if tr.cuda.is_available() else "cpu")
+if device !='cpu':
+  tr.set_default_tensor_type(tr.cuda.FloatTensor)
+  
 ## initialize model and task
 if arch=='purewm':
   net = Net(edim,stsize,outdim,seed)
@@ -33,9 +39,9 @@ elif arch=='wmem':
   net = Net_wmem(edim,stsize,outdim,seed)
 task = NBackPMTask(nback,num_og_tokens,num_pm_trials,seed)
 
-## look for gpu
-device = tr.device("cuda:0" if tr.cuda.is_available() else "cpu")
+
 net = net.to(device)
+
 
 ## train
 print('training',device)
@@ -79,7 +85,7 @@ for ep in range(nepochs):
   L[ep] = epoch_loss
   A[ep] = acc
   E[ep] = nembeds
-  
+
 
 
 
