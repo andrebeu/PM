@@ -34,13 +34,10 @@ elif arch=='wmem':
 task = NBackPMTask(nback,num_og_tokens,num_pm_trials,seed)
 
 ## look for gpu
-try: net.cuda()
-except:
-  print('gpu not found')
-  pass
+device = tr.device("cuda:0" if tr.cuda.is_available() else "cpu")
 
 ## train
-print('training')
+print('training',device)
 
 # specify loss and optimizer
 lossop = tr.nn.CrossEntropyLoss(weight=tr.Tensor([1,1,pm_loss_weight]))
