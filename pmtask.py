@@ -51,14 +51,14 @@ E = -np.ones([nepochs])
 
 acc = 0
 nembeds = 0
-Emat = tr.randn(num_og_tokens+1,edim)
+Emat = tr.randn(num_og_tokens+1,edim).to(device)
 for ep in range(nepochs):
   if ep%(nepochs/5)==0:
     print(ep/nepochs,nembeds)
   optiop.zero_grad() 
   # randomize emat
   if acc>train_tresh:
-    Emat = tr.FloatTensor(num_og_tokens+1,edim).uniform_(0,1)
+    Emat = tr.FloatTensor(num_og_tokens+1,edim).uniform_(0,1).to(device)
     nembeds+=1
   # generate data
   x_int,ytarget = task.gen_seq(train_seqlen)
