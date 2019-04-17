@@ -40,9 +40,6 @@ elif arch=='wmem':
 task = NBackPMTask(nback,num_og_tokens,num_pm_trials,seed)
 
 
-net = net.to(device)
-
-
 ## train
 print('training',device)
 
@@ -57,18 +54,18 @@ E = -np.ones([nepochs])
 
 acc = 0
 nembeds = 0
-Emat = tr.randn(num_og_tokens+1,edim).to(device)
+Emat = tr.randn(num_og_tokens+1,edim)
 for ep in range(nepochs):
   if ep%(nepochs/5)==0:
     print(ep/nepochs,nembeds)
   optiop.zero_grad() 
   # randomize emat
   if acc>train_tresh:
-    Emat = tr.FloatTensor(num_og_tokens+1,edim).uniform_(0,1).to(device)
+    Emat = tr.FloatTensor(num_og_tokens+1,edim).uniform_(0,1)
     nembeds+=1
   # generate data
   x_int,ytarget = task.gen_seq(train_seqlen)
-  ytarget = tr.LongTensor(ytarget).unsqueeze(1).to(device)
+  ytarget = tr.LongTensor(ytarget).unsqueeze(1)
   x_embeds = Emat[x_int].unsqueeze(1) 
   # forward prop
   yhat = net(x_embeds)
