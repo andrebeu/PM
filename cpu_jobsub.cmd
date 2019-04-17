@@ -25,9 +25,3 @@ printf "\n\n nback Task \n\n"
 
 srun python -u "/tigress/abeukers/wd/pm/pmtask.py" ${seed} ${arch} ${stsize}
 
-
-printf "\n\nGPU profiling \n\n"
-sacct --format="elapsed,CPUTime,TotalCPU"
-nvidia-smi --query-accounted-apps=gpu_serial,gpu_utilization,mem_utilization,max_memory_usage --format=csv
-
-# mv slurm*.out slurm_out/
