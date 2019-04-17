@@ -61,7 +61,7 @@ for ep in range(nepochs):
   optiop.zero_grad() 
   # randomize emat
   if acc>train_tresh:
-    Emat = tr.FloatTensor(num_og_tokens+1,edim).uniform_(0,1)
+    Emat = tr.FloatTensor(num_og_tokens+1,edim).uniform_(0,1).to(device)
     nembeds+=1
   # generate data
   x_int,ytarget = task.gen_seq(train_seqlen)
