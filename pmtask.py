@@ -5,64 +5,78 @@ import numpy as np
 from PMmodel import *
 
 ## PARAMS
-
-# network
 seed = int(sys.argv[1])
-arch = str(sys.argv[2])
-stsize = int(sys.argv[3])
-edim = 5
-batch = 1
-outdim = 3
-# task
+## task
 nback=2
-num_og_tokens = 3
-num_pm_trials = int(sys.argv[4])
-# training
-train_tresh = .99
-nepochs = 100000
-train_seqlen = 25
-pm_loss_weight = int(sys.argv[5])
+ntokens_og=3
+num_pmtrials=3
+edim_og=5
+edim_pm=5
+focal=int(sys.argv[2])
+pm_weight = int(sys.argv[3])
+trseqlen = 25
 
-fpath = 'model_data/%s_%i-pmtrials_%i-trseqlen_%i-pmweight_%s-seed_%i'%(
-          arch,stsize,num_pm_trials,train_seqlen,pm_loss_weight,seed)
+## network
+arch = 'purewm'
+stsize = 40
+indim = edim_og+edim_pm
+batch=1
+outdim=3
+
+## training
+thresh = .99
+nepochs = 1000
+
+
+# model fpath
+fpath = 'model_data/%s_%i-focal_%i-pmtrials_%i-pmweight_%s-trseqlen_%i-seed_%i'%(
+          arch,stsize,focal,num_pmtrials,trseqlen,pm_weight,seed)
 print(fpath)
 
-
-## initialize model and task
-if arch=='purewm':
-  net = Net(edim,stsize,outdim,seed)
-elif arch=='wmem':
-  net = Net_wmem(edim,stsize,outdim,seed)
-task = NBackPMTask(nback,num_og_tokens,num_pm_trials,seed)
-
-
-## train
-print('training')
+# model and task
+if arch=='purewm': net = Net(indim,stsize,outdim)
+elif arch=='wmem': net = Net_wmem(indim,stsize,outdim)
+task = NBackPMTask(nback,ntokens_og,num_pmtrials,edim_og,edim_pm,focal,seed)
 
 # specify loss and optimizer
-lossop = tr.nn.CrossEntropyLoss(weight=tr.Tensor([1,1,pm_loss_weight]))
+loss_weight = tr.FloatTensor([1,1,pm_weight]) 
+lossop = tr.nn.CrossEntropyLoss(weight=loss_weight)
 optiop = tr.optim.Adam(net.parameters(), lr=0.005)
 
-# init arrays
-L = -np.ones([nepochs])
-A = -np.ones([nepochs])
-E = -np.ones([nepochs])
+## eval fun
+def eval_(net,task):
+  teseqlen = 15
+  neps = 1500
+  score = -np.ones([neps,teseqlen])
+  for ep in range(neps):
+    # embedding matrix
+    task.sample_emat()
+    # generate data
+    x_seq,y_seq = task.gen_seq(teseqlen,pm_trial_position=[5,9])
+    x_embeds,ytarget = task.embed_seq(x_seq,y_seq)
+    # forward prop
+    yhat = net(x_embeds)
+    ep_score = (ytarget == tr.softmax(yhat,-1).argmax(-1)).float().squeeze()
+    score[ep] = ep_score 
+  return score
+
+# ### train
+print('train')
 
 acc = 0
 nembeds = 0
-Emat = tr.FloatTensor(num_og_tokens+1,edim).uniform_(0,1)
 for ep in range(nepochs):
-  if ep%(nepochs/5)==0:
-    print(ep/nepochs,nembeds)
-  optiop.zero_grad() 
+  if ep%(nepochs/10)==0:
+    print(ep/nepochs)
+    score = eval_(net,task)
+    np.save(fpath+'-trep_%i'%ep,score)
   # randomize emat
-  if acc>train_tresh:
-    Emat = tr.FloatTensor(num_og_tokens+1,edim).uniform_(0,1)
+  if acc>thresh:
+    task.sample_emat()
     nembeds+=1
   # generate data
-  x_int,ytarget = task.gen_seq(train_seqlen)
-  ytarget = tr.LongTensor(ytarget).unsqueeze(1)
-  x_embeds = Emat[x_int].unsqueeze(1) 
+  x_seq,y_seq = task.gen_seq(trseqlen)
+  x_embeds,ytarget = task.embed_seq(x_seq,y_seq)
   # forward prop
   yhat = net(x_embeds)
   # collect loss through time
@@ -70,36 +84,10 @@ for ep in range(nepochs):
   for yh,yt in zip(yhat,ytarget):
     loss += lossop(yh,yt)
     acc += yt==tr.argmax(tr.softmax(yh,1))
-  acc = acc.cpu().numpy()/train_seqlen
+  acc = acc.numpy()/len(yhat)
   # bp and update
+  optiop.zero_grad()
   loss.backward()
   optiop.step()
   epoch_loss = loss.item()
-  L[ep] = epoch_loss
-  A[ep] = acc
-  E[ep] = nembeds
 
-
-## eval
-print('eval')
-
-seqlen = 15
-neps = 1500
-score = -np.ones([neps,seqlen])
-
-for ep in range(neps):
-  # embedding matrix
-  Emat = tr.FloatTensor(num_og_tokens+1,edim).uniform_(0,1)
-  # generate data
-  x_int,ytarget = task.gen_seq(seqlen,pm_trial_position=[5,9])
-  ytarget = tr.LongTensor(ytarget).unsqueeze(1)
-  # embed inputs
-  x_embeds = Emat[x_int]
-  x_embeds = x_embeds.unsqueeze(1)
-  # forward prop
-  yhat = net(x_embeds)
-  ep_score = (ytarget == tr.softmax(yhat,-1).argmax(-1)).float().squeeze()
-  score[ep] = ep_score 
-
-## save
-np.save(fpath,score)

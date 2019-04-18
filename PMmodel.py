@@ -5,7 +5,7 @@ tr_uniform = lambda shape: tr.FloatTensor(*shape).uniform_(0,1)
 
 class NBackPMTask():
 
-  def __init__(self,nback,ntokens_og,num_pm_trials,edim_og,edim_pm=0,focal=False,seed=132):
+  def __init__(self,nback,ntokens_og,num_pm_trials,edim_og,edim_pm,focal,seed=132):
     """ 
     """
     np.random.seed(seed)
@@ -55,7 +55,6 @@ class NBackPMTask():
     pm_trials = np.where(pm_trials_bool)
     og_trials = np.where(np.logical_not(pm_trials_bool))
     if self.focal:
-      assert self.edim_pm == 0
       X_embed = self.emat[X_seq]
     else:
       X_embed = -tr.ones(len(X_seq),self.edim_og+self.edim_pm)
@@ -76,7 +75,7 @@ class NBackPMTask():
 
   def sample_emat(self):
     if self.focal:
-      self.emat = tr_uniform([self.ntokens_og+self.ntokens_pm,self.edim_og])
+      self.emat = tr_uniform([self.ntokens_og+self.ntokens_pm,self.edim_og+self.edim_pm])
     else:
       self.emat_og = tr_uniform([self.ntokens_og,self.edim_og])
       self.emat_pm = tr_uniform([self.ntokens_pm,self.edim_pm])
@@ -84,16 +83,16 @@ class NBackPMTask():
 
 
 class Net(tr.nn.Module):
-  def __init__(self,edim=2,stsize=4,outdim=3,seed=132):
+  def __init__(self,indim,stsize,outdim,seed=132):
     super().__init__()
     # seed
     tr.manual_seed(seed)
     # params
-    self.edim = edim
+    self.indim = indim
     self.stsize = stsize
     self.outdim = outdim
     # layers
-    self.ff_in = tr.nn.Linear(edim,stsize)
+    self.ff_in = lambda x: tr.nn.ReLU()(tr.nn.Linear(indim,stsize)(x))
     self.initial_state = tr.rand(2,1,self.stsize,requires_grad=True)
     self.cell = tr.nn.LSTMCell(stsize,stsize)
     self.ff_out = tr.nn.Linear(stsize,outdim)
@@ -121,16 +120,16 @@ class Net(tr.nn.Module):
 
 
 class Net_wmem(tr.nn.Module):
-  def __init__(self,edim=2,stsize=4,outdim=3,seed=132):
+  def __init__(self,indim=2,stsize=4,outdim=3,seed=132):
     super().__init__()
     # seed
     tr.manual_seed(seed)
     # params
-    self.edim = edim
+    self.indim = indim
     self.stsize = stsize
     self.outdim = outdim
     # layers
-    self.ff_in = tr.nn.Linear(edim,stsize)
+    self.ff_in = lambda x: tr.nn.ReLU()(tr.nn.Linear(indim,stsize)(x))
     self.initial_state = tr.rand(2,1,self.stsize,requires_grad=True)
     self.cell = tr.nn.LSTMCell(stsize,stsize)
     self.ff_out = tr.nn.Linear(stsize,outdim)
