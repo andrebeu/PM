@@ -2,6 +2,10 @@ import torch as tr
 import numpy as np
 
 tr_uniform = lambda shape: tr.FloatTensor(*shape).uniform_(0,1)
+tr_randn = lambda shape: tr.randn(*shape)
+
+tr_noise = tr_uniform 
+tr_embed = tr_randn
 
 class NBackPMTask():
 
@@ -20,6 +24,8 @@ class NBackPMTask():
     self.emat_initialized=True
     self.edim_og = edim_og
     self.edim_pm = edim_pm
+    self.noise_edim_og = edim_pm
+    self.noise_edim_pm = edim_og
     self.focal = focal
     self.sample_emat()
     return None
@@ -61,12 +67,12 @@ class NBackPMTask():
       X_embed = -tr.ones(len(X_seq),self.edim_og+self.edim_pm)
       # pm trials
       pm_embeds = self.emat_pm[X_seq[pm_trials] - self.ntokens_og] # (time,edim)
-      pm_noise = tr_uniform([len(pm_embeds),self.edim_og])
+      pm_noise = tr_noise([len(pm_embeds),self.edim_og])
       pm_embeds = tr.cat([pm_embeds,pm_noise],1)
       X_embed[pm_trials] = pm_embeds
       # og trials
       og_embeds = self.emat_og[X_seq[og_trials]] # (time,edim)
-      og_noise = tr_uniform([len(og_embeds),self.edim_pm])
+      og_noise = tr_noise([len(og_embeds),self.edim_pm])
       og_embeds = tr.cat([og_noise,og_embeds],1)
       X_embed[og_trials] = og_embeds 
     # include batch dim   
@@ -76,15 +82,15 @@ class NBackPMTask():
 
   def sample_emat(self):
     if self.focal:
-      self.emat = tr_uniform([self.ntokens_og+self.ntokens_pm,self.edim_og+self.edim_pm])
+      self.emat = tr_embed([self.ntokens_og+self.ntokens_pm,self.edim_og+self.edim_pm])
     else:
-      self.emat_og = tr_uniform([self.ntokens_og,self.edim_og])
-      self.emat_pm = tr_uniform([self.ntokens_pm,self.edim_pm])
+      self.emat_og = tr_embed([self.ntokens_og,self.edim_og])
+      self.emat_pm = tr_embed([self.ntokens_pm,self.edim_pm])
 
 
 
-class Net(tr.nn.Module):
-  def __init__(self,indim,stsize,outdim,seed=132):
+class PMNet(tr.nn.Module):
+  def __init__(self,indim,stsize,outdim,EM=True,seed=132):
     super().__init__()
     # seed
     tr.manual_seed(seed)
@@ -93,47 +99,15 @@ class Net(tr.nn.Module):
     self.stsize = stsize
     self.outdim = outdim
     # layers
-    self.ff_in = lambda x: tr.nn.ReLU()(tr.nn.Linear(indim,stsize)(x))
+    self.ff_in = tr.nn.Linear(indim,stsize)
+    self.relu = tr.nn.ReLU()
     self.initial_state = tr.rand(2,1,self.stsize,requires_grad=True)
     self.cell = tr.nn.LSTMCell(stsize,stsize)
     self.ff_out = tr.nn.Linear(stsize,outdim)
-    return None
-
-  def forward(self,xdata):
-    """ 
-    input: xdata `(time,batch,embedding)`
-    output: yhat `(time,batch,outdim)`
-    """
-    seqlen = xdata.shape[0]
-    # init cell state
-    lstm_output,lstm_state = self.initial_state
-    # inproj
-    xdata = self.ff_in(xdata)
-    # unroll
-    lstm_outs = -tr.ones(seqlen,1,self.stsize)
-    for t in range(seqlen):
-      lstm_output,lstm_state = self.cell(xdata[t,:,:],(lstm_output,lstm_state))
-      lstm_outs[t] = lstm_output
-    # outporj
-    yhat = self.ff_out(lstm_outs)
-    # yhat = tr.nn.Softmax(dim=-1)(yhat)
-    return yhat
-
-
-class Net_wmem(tr.nn.Module):
-  def __init__(self,indim=2,stsize=4,outdim=3,seed=132):
-    super().__init__()
-    # seed
-    tr.manual_seed(seed)
-    # params
-    self.indim = indim
-    self.stsize = stsize
-    self.outdim = outdim
-    # layers
-    self.ff_in = lambda x: tr.nn.ReLU()(tr.nn.Linear(indim,stsize)(x))
-    self.initial_state = tr.rand(2,1,self.stsize,requires_grad=True)
-    self.cell = tr.nn.LSTMCell(stsize,stsize)
-    self.ff_out = tr.nn.Linear(stsize,outdim)
+    # retrival layers
+    self.rgate = tr.nn.Linear(stsize,stsize)
+    self.sigm = tr.nn.Tanh()
+    self.EM = EM
     return None
 
   def forward(self,xdata):
@@ -144,9 +118,11 @@ class Net_wmem(tr.nn.Module):
     seqlen = xdata.shape[0]
     # inproj
     percept = self.ff_in(xdata)
+    percept = self.relu(percept)
     # compute retrieval similarities
     percept_pm_cue = percept[0]
-    sim = self.sim = (tr.cosine_similarity(percept_pm_cue,percept,dim=-1) + 1).detach()/2
+    sim = (tr.cosine_similarity(percept_pm_cue,percept,dim=-1) + 1).detach()/2
+    self.sim = sim
     # unroll
     lstm_outs = -tr.ones(seqlen,1,self.stsize)
     ## PM cue encoding trial
@@ -156,9 +132,16 @@ class Net_wmem(tr.nn.Module):
     lstm_outs[0] = lstm_output_pm
     ## task
     lstm_output,lstm_state = lstm_output_pm,lstm_state_pm
+    self.rgate_act = -tr.ones(seqlen,self.stsize)
     for t in range(1,seqlen):
-      # update state based on similarity to pm_state memory
-      lstm_state = sim[t,0]*lstm_state_pm+(1-sim[t,0])*lstm_state
+      if self.EM:
+        # rgate act
+        rgate_act = self.rgate(percept[t,:,:])
+        rgate_act = self.sigm(rgate_act)
+        self.rgate_act[t] = rgate_act
+        # update state based on similarity to pm_state memory
+        # lstm_state = sim[t,0]*lstm_state_pm + (1-sim[t,0])*lstm_state
+        lstm_state = rgate_act*lstm_state_pm + lstm_state
       # compute cell prediction
       lstm_output,lstm_state = self.cell(percept[t,:,:],(lstm_output,lstm_state))
       lstm_outs[t] = lstm_output

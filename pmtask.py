@@ -17,7 +17,7 @@ pm_weight = int(sys.argv[3])
 trseqlen = 25
 
 ## network
-arch = 'purewm'
+EM = 0
 stsize = 40
 indim = edim_og+edim_pm
 batch=1
@@ -27,15 +27,16 @@ outdim=3
 thresh = .99
 nepochs = 1000000
 
+tr.manual_seed(seed)
+np.random.seed(seed)
 
 # model fpath
-fpath = 'model_data/%s_%i-focal_%i-pmtrials_%i-pmweight_%s-trseqlen_%i-seed_%i'%(
-          arch,stsize,focal,num_pmtrials,pm_weight,trseqlen,seed)
+fpath = 'model_data/EM_%i-stsize_%i-focal_%i-pmtrials_%i-pmweight_%s-trseqlen_%i-seed_%i'%(
+          EM, stsize, focal, num_pmtrials, pm_weight, trseqlen, seed)
 print(fpath)
 
 # model and task
-if arch=='purewm': net = Net(indim,stsize,outdim)
-elif arch=='wmem': net = Net_wmem(indim,stsize,outdim)
+net = PMNet(indim,stsize,outdim,EM)
 task = NBackPMTask(nback,ntokens_og,num_pmtrials,edim_og,edim_pm,focal,seed)
 
 # specify loss and optimizer
