@@ -82,7 +82,7 @@ for ep in range(nepochs):
   # collect loss through time
   loss,acc = 0,0
   for yh,yt in zip(yhat,ytarget):
-    loss += loss_weight[yh]*lossop(yh,yt)
+    loss += loss_weight[yt]*lossop(yh,yt)
     acc += yt==tr.argmax(tr.softmax(yh,1))
   acc = acc.numpy()/len(yhat)
   # bp and update
