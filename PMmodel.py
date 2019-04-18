@@ -9,6 +9,7 @@ class NBackPMTask():
     """ 
     """
     np.random.seed(seed)
+    tr.manual_seed(seed)
     self.nback = nback
     self.ntokens_og = ntokens_og
     self.ntokens_pm = 1

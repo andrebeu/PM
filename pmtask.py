@@ -40,7 +40,7 @@ task = NBackPMTask(nback,ntokens_og,num_pmtrials,edim_og,edim_pm,focal,seed)
 
 # specify loss and optimizer
 loss_weight = tr.FloatTensor([1,1,pm_weight]) 
-lossop = tr.nn.CrossEntropyLoss(weight=loss_weight)
+lossop = tr.nn.CrossEntropyLoss()
 optiop = tr.optim.Adam(net.parameters(), lr=0.005)
 
 ## eval fun
@@ -82,12 +82,11 @@ for ep in range(nepochs):
   # collect loss through time
   loss,acc = 0,0
   for yh,yt in zip(yhat,ytarget):
-    loss += lossop(yh,yt)
+    loss += loss_weight[yh]*lossop(yh,yt)
     acc += yt==tr.argmax(tr.softmax(yh,1))
   acc = acc.numpy()/len(yhat)
   # bp and update
   optiop.zero_grad()
   loss.backward()
   optiop.step()
-  epoch_loss = loss.item()
 
