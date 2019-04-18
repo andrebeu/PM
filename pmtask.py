@@ -25,7 +25,7 @@ outdim=3
 
 ## training
 thresh = .99
-nepochs = 1000
+nepochs = 1000000
 
 
 # model fpath
