@@ -3,7 +3,7 @@
 #SBATCH -t 05:00:00			# runs for 48 hours (max)  
 #SBATCH --ntasks-per-node=1
 #SBATCH -N 1				# node count 
-#SBATCH -c 28				# number of cores 
+#SBATCH -c 10				# number of cores 
 
 printf "tiger CPU "
 
