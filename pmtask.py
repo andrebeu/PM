@@ -30,7 +30,7 @@ nepochs = 1000000
 
 # model fpath
 fpath = 'model_data/%s_%i-focal_%i-pmtrials_%i-pmweight_%s-trseqlen_%i-seed_%i'%(
-          arch,stsize,focal,num_pmtrials,trseqlen,pm_weight,seed)
+          arch,stsize,focal,num_pmtrials,pm_weight,trseqlen,seed)
 print(fpath)
 
 # model and task
