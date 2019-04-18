@@ -1,18 +1,26 @@
 import torch as tr
 import numpy as np
 
+tr_uniform = lambda shape: tr.FloatTensor(*shape).uniform_(0,1)
 
 class NBackPMTask():
 
-  def __init__(self,nback,num_og_tokens,num_pm_trials,seed=132):
+  def __init__(self,nback,ntokens_og,num_pm_trials,edim_og,edim_pm=0,focal=False,seed=132):
     """ 
     """
     np.random.seed(seed)
     self.nback = nback
-    self.num_og_tokens = num_og_tokens
-    self.pm_token = num_og_tokens
+    self.ntokens_og = ntokens_og
+    self.ntokens_pm = 1
+    self.pm_token = ntokens_og
     self.min_start_trials = 1
     self.num_pm_trials = num_pm_trials
+    # embedding
+    self.emat_initialized=True
+    self.edim_og = edim_og
+    self.edim_pm = edim_pm
+    self.focal = focal
+    self.sample_emat()
     return None
 
   def gen_seq(self,ntrials=30,pm_trial_position=None):
@@ -28,13 +36,51 @@ class NBackPMTask():
       ntrials -= 1+len(pm_trial_position)
       pm_trial_position = pm_trial_position
     # generate og stim
-    seq = np.random.randint(0,self.num_og_tokens,ntrials)
+    seq = np.random.randint(0,self.ntokens_og,ntrials)
     X = np.insert(seq,[0,*pm_trial_position],self.pm_token)
     # form Y 
     Xroll = np.roll(X,self.nback)
     Y = (X == Xroll).astype(int) # nback trials
     Y[X==self.pm_token]=2 # pm trials
     return X,Y
+
+  def embed_seq(self,X_seq,Y_seq):
+    """ 
+    takes 1-D input sequences
+    returns 
+      X_embed `(time,batch,edim)`[torch]
+      Y_embed `(time,batch)`[torch]
+    """
+    pm_trials_bool = X_seq >= self.ntokens_og
+    pm_trials = np.where(pm_trials_bool)
+    og_trials = np.where(np.logical_not(pm_trials_bool))
+    if self.focal:
+      assert self.edim_pm == 0
+      X_embed = self.emat[X_seq]
+    else:
+      X_embed = -tr.ones(len(X_seq),self.edim_og+self.edim_pm)
+      # pm trials
+      pm_embeds = self.emat_pm[X_seq[pm_trials] - self.ntokens_og] # (time,edim)
+      pm_noise = tr_uniform([len(pm_embeds),self.edim_og])
+      pm_embeds = tr.cat([pm_embeds,pm_noise],1)
+      X_embed[pm_trials] = pm_embeds
+      # og trials
+      og_embeds = self.emat_og[X_seq[og_trials]] # (time,edim)
+      og_noise = tr_uniform([len(og_embeds),self.edim_pm])
+      og_embeds = tr.cat([og_noise,og_embeds],1)
+      X_embed[og_trials] = og_embeds 
+    # include batch dim   
+    X_embed = tr.unsqueeze(X_embed,1)
+    Y_embed = tr.unsqueeze(tr.LongTensor(Y_seq),1)
+    return X_embed,Y_embed
+
+  def sample_emat(self):
+    if self.focal:
+      self.emat = tr_uniform([self.ntokens_og+self.ntokens_pm,self.edim_og])
+    else:
+      self.emat_og = tr_uniform([self.ntokens_og,self.edim_og])
+      self.emat_pm = tr_uniform([self.ntokens_pm,self.edim_pm])
+
 
 
 class Net(tr.nn.Module):

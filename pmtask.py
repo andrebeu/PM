@@ -50,7 +50,7 @@ E = -np.ones([nepochs])
 
 acc = 0
 nembeds = 0
-Emat = tr.randn(num_og_tokens+1,edim)
+Emat = tr.FloatTensor(num_og_tokens+1,edim).uniform_(0,1)
 for ep in range(nepochs):
   if ep%(nepochs/5)==0:
     print(ep/nepochs,nembeds)
@@ -80,8 +80,6 @@ for ep in range(nepochs):
   E[ep] = nembeds
 
 
-
-
 ## eval
 print('eval')
 
@@ -103,7 +101,5 @@ for ep in range(neps):
   ep_score = (ytarget == tr.softmax(yhat,-1).argmax(-1)).float().squeeze()
   score[ep] = ep_score 
 
-
 ## save
 np.save(fpath,score)
-
