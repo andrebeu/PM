@@ -7,6 +7,7 @@ tr_randn = lambda shape: tr.randn(*shape)
 tr_noise = tr_uniform 
 tr_embed = tr_randn
 
+
 class NBackPMTask():
 
   def __init__(self,nback,ntokens_og,num_pm_trials,edim_og,edim_pm,focal,seed=132):
@@ -67,13 +68,13 @@ class NBackPMTask():
       X_embed = -tr.ones(len(X_seq),self.edim_og+self.edim_pm)
       # pm trials
       pm_embeds = self.emat_pm[X_seq[pm_trials] - self.ntokens_og] # (time,edim)
-      pm_noise = tr_noise([len(pm_embeds),self.edim_og])
-      pm_embeds = tr.cat([pm_embeds,pm_noise],1)
+      pm_noise = tr_noise([len(pm_embeds),self.noise_edim_pm])
+      pm_embeds = tr.cat([pm_embeds,pm_noise],-1)
       X_embed[pm_trials] = pm_embeds
       # og trials
       og_embeds = self.emat_og[X_seq[og_trials]] # (time,edim)
-      og_noise = tr_noise([len(og_embeds),self.edim_pm])
-      og_embeds = tr.cat([og_noise,og_embeds],1)
+      og_noise = tr_noise([len(og_embeds),self.noise_edim_og])
+      og_embeds = tr.cat([og_noise,og_embeds],-1)
       X_embed[og_trials] = og_embeds 
     # include batch dim   
     X_embed = tr.unsqueeze(X_embed,1)
@@ -90,6 +91,7 @@ class NBackPMTask():
 
 
 class PMNet(tr.nn.Module):
+
   def __init__(self,indim,stsize,outdim,EM=True,seed=132):
     super().__init__()
     # seed

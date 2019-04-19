@@ -4,31 +4,28 @@ import numpy as np
 
 from PMmodel import *
 
-## sweeping params
-seed = sys.argv[1]
-stsize = sys.argv[2]
-num_pmtrials = sys.argv[3]
-pm_weight = sys.argv[4]
-
-## constant params
-
-# task
+## PARAMS
+seed = int(sys.argv[1])
+## task
 nback=2
 ntokens_og=3
-edim_og=8
-edim_pm=0
-focal=1
+num_pmtrials=3
+edim_og=5
+edim_pm=5
+focal=int(sys.argv[2])
+pm_weight = int(sys.argv[3])
 trseqlen = 25
 
-# network
+## network
+EM = 0
+stsize = 40
 indim = edim_og+edim_pm
 batch=1
 outdim=3
-EM=0
 
 ## training
 thresh = .99
-nepochs = 300000
+nepochs = 1000000
 
 tr.manual_seed(seed)
 np.random.seed(seed)
@@ -39,9 +36,13 @@ fpath = 'model_data/EM_%i-stsize_%i-focal_%i-pmtrials_%i-pmweight_%s-trseqlen_%i
 print(fpath)
 
 # model and task
-net = PMNet(indim,stsize,outdim,EM,seed)
+net = PMNet(indim,stsize,outdim,EM)
 task = NBackPMTask(nback,ntokens_og,num_pmtrials,edim_og,edim_pm,focal,seed)
 
+# specify loss and optimizer
+loss_weight = tr.FloatTensor([1,1,pm_weight]) 
+lossop = tr.nn.CrossEntropyLoss()
+optiop = tr.optim.Adam(net.parameters(), lr=0.005)
 
 ## eval fun
 def eval_(net,task):
@@ -62,11 +63,6 @@ def eval_(net,task):
 
 # ### train
 print('train')
-
-# specify loss and optimizer
-loss_weight = tr.FloatTensor([1,1,pm_weight]) 
-lossop = tr.nn.CrossEntropyLoss()
-optiop = tr.optim.Adam(net.parameters(), lr=0.005)
 
 acc = 0
 nembeds = 0
@@ -95,5 +91,3 @@ for ep in range(nepochs):
   loss.backward()
   optiop.step()
 
-score = eval_(net,task)
-np.save(fpath+'-trep_final',score)
