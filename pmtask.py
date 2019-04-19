@@ -5,10 +5,10 @@ import numpy as np
 from PMmodel import *
 
 ## sweeping params
-seed = sys.argv[1]
-stsize = sys.argv[2]
-num_pmtrials = sys.argv[3]
-pm_weight = sys.argv[4]
+seed = int(sys.argv[1])
+stsize = int(sys.argv[2])
+num_pmtrials = int(sys.argv[3])
+pm_weight = int(sys.argv[4])
 
 ## constant params
 
@@ -28,7 +28,7 @@ EM=0
 
 ## training
 thresh = .99
-nepochs = 300000
+nepochs = 500000
 
 tr.manual_seed(seed)
 np.random.seed(seed)
