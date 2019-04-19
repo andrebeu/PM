@@ -9,6 +9,7 @@ seed = int(sys.argv[1])
 stsize = int(sys.argv[2])
 num_pmtrials = int(sys.argv[3])
 pm_weight = int(sys.argv[4])
+EM=sys.argv[5]
 
 ## constant params
 
@@ -24,7 +25,7 @@ trseqlen = 25
 indim = edim_og+edim_pm
 batch=1
 outdim=3
-EM=0
+
 
 ## training
 thresh = .99
@@ -72,7 +73,7 @@ acc = 0
 nembeds = 0
 for ep in range(nepochs):
   if ep%(nepochs/10)==0:
-    print(ep/nepochs)
+    print(ep/nepochs,nembeds)
     score = eval_(net,task)
     np.save(fpath+'-trep_%i'%ep,score)
   # randomize emat
