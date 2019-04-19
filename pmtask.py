@@ -6,37 +6,36 @@ from PMmodel import *
 
 ## sweeping params
 seed = int(sys.argv[1])
-stsize = int(sys.argv[2])
-num_pmtrials = int(sys.argv[3])
-pm_weight = int(sys.argv[4])
-EM=sys.argv[5]
+stsize = int(sys.argv[2]) # 30
+num_pmtrials = int(sys.argv[3]) # 5
+pm_weight = int(sys.argv[4]) # 1
+EM=int(sys.argv[5]) 
+nback=int(sys.argv[6]) # 1
 
 ## constant params
 
 # task
-nback=2
 ntokens_og=3
 edim_og=8
 edim_pm=0
 focal=1
-trseqlen = 25
+trseqlen = 20
 
 # network
 indim = edim_og+edim_pm
 batch=1
 outdim=3
 
-
 ## training
-thresh = .99
-nepochs = 500000
+thresh = .95
+nepochs = 100000
 
 tr.manual_seed(seed)
 np.random.seed(seed)
 
 # model fpath
-fpath = 'model_data/EM_%i-stsize_%i-focal_%i-pmtrials_%i-pmweight_%s-trseqlen_%i-seed_%i'%(
-          EM, stsize, focal, num_pmtrials, pm_weight, trseqlen, seed)
+fpath = 'model_data/EM_%i-stsize_%i-nback_%i-focal_%i-pmtrials_%i-pmweight_%s-seed_%i'%(
+          EM, stsize, nback, focal, num_pmtrials, pm_weight, seed)
 print(fpath)
 
 # model and task
@@ -67,7 +66,7 @@ print('train')
 # specify loss and optimizer
 loss_weight = tr.FloatTensor([1,1,pm_weight]) 
 lossop = tr.nn.CrossEntropyLoss()
-optiop = tr.optim.Adam(net.parameters(), lr=0.005)
+optiop = tr.optim.Adam(net.parameters(), lr=0.0005)
 
 acc = 0
 nembeds = 0

@@ -17,6 +17,7 @@ stsize=${2}
 num_pmtrials=${3}
 pm_weight=${4}
 em=${5}
+nback=${6}
 
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2

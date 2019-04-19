@@ -5,7 +5,7 @@ tr_uniform = lambda shape: tr.FloatTensor(*shape).uniform_(0,1)
 tr_randn = lambda shape: tr.randn(*shape)
 
 tr_noise = tr_uniform 
-tr_embed = tr_randn
+tr_embed = tr_uniform
 
 
 class NBackPMTask():
@@ -66,15 +66,17 @@ class NBackPMTask():
       X_embed = self.emat[X_seq]
     else:
       X_embed = -tr.ones(len(X_seq),self.edim_og+self.edim_pm)
-      # pm trials
+      # take signal
       pm_embeds = self.emat_pm[X_seq[pm_trials] - self.ntokens_og] # (time,edim)
-      pm_noise = tr_noise([len(pm_embeds),self.noise_edim_pm])
-      pm_embeds = tr.cat([pm_embeds,pm_noise],-1)
-      X_embed[pm_trials] = pm_embeds
-      # og trials
       og_embeds = self.emat_og[X_seq[og_trials]] # (time,edim)
+      # make noise
+      pm_noise = tr_noise([len(pm_embeds),self.noise_edim_pm])
       og_noise = tr_noise([len(og_embeds),self.noise_edim_og])
+      # cat signal and noise
+      pm_embeds = tr.cat([pm_embeds,pm_noise],-1)
       og_embeds = tr.cat([og_noise,og_embeds],-1)
+      # put into respective positions
+      X_embed[pm_trials] = pm_embeds
       X_embed[og_trials] = og_embeds 
     # include batch dim   
     X_embed = tr.unsqueeze(X_embed,1)
@@ -102,10 +104,12 @@ class PMNet(tr.nn.Module):
     self.outdim = outdim
     # layers
     self.ff_in = tr.nn.Linear(indim,stsize)
-    self.relu = tr.nn.ReLU()
+    self.relu_in = tr.nn.ReLU()
     self.initial_state = tr.rand(2,1,self.stsize,requires_grad=True)
     self.cell = tr.nn.LSTMCell(stsize,stsize)
-    self.ff_out = tr.nn.Linear(stsize,outdim)
+    self.ff_out1 = tr.nn.Linear(stsize,stsize)
+    self.relu_out = tr.nn.ReLU()
+    self.ff_out2 = tr.nn.Linear(stsize,outdim)
     # retrival layers
     self.rgate = tr.nn.Linear(stsize,stsize)
     self.sigm = tr.nn.Tanh()
@@ -120,7 +124,7 @@ class PMNet(tr.nn.Module):
     seqlen = xdata.shape[0]
     # inproj
     percept = self.ff_in(xdata)
-    percept = self.relu(percept)
+    percept = self.relu_in(percept)
     # compute retrieval similarities
     percept_pm_cue = percept[0]
     sim = (tr.cosine_similarity(percept_pm_cue,percept,dim=-1) + 1).detach()/2
@@ -148,6 +152,8 @@ class PMNet(tr.nn.Module):
       lstm_output,lstm_state = self.cell(percept[t,:,:],(lstm_output,lstm_state))
       lstm_outs[t] = lstm_output
     # outporj
-    yhat = self.ff_out(lstm_outs)
+    yhat = self.ff_out1(lstm_outs)
+    yhat = self.relu_out(yhat)
+    yhat = self.ff_out2(yhat)
     return yhat
 
