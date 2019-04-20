@@ -9,12 +9,11 @@ seed = int(sys.argv[1])
 signal = int(sys.argv[2])
 pmweight = int(sys.argv[3]) 
 EM = int(sys.argv[4]) 
-
+pmtrials = int(sys.argv[5])
 
 ### constant
 # task
 nback=1
-pmtrials = 5
 ntokens_og = 3
 edim = 8
 noise = edim-signal
@@ -47,7 +46,7 @@ tr.manual_seed(seed)
 np.random.seed(seed)
 
 # model fpath
-fpath = 'model_data/EM_%i-stsize_%i-nback__%i-pmtrials_%i-pmweight_%s-signal_%i-noise_%i-seed_%i'%(
+fpath = 'model_data/EM_%i-stsize_%i-nback_%i-pmtrials_%i-pmweight_%s-signal_%i-noise_%i-seed_%i'%(
           EM, stsize, nback, pmtrials, pmweight, signal, noise, seed)
 print(fpath)
 
@@ -79,7 +78,7 @@ optiop = tr.optim.Adam(net.parameters(), lr=0.0005)
 acc = 0
 nembeds = 0
 for ep in range(nepochs):
-  if ep%(nepochs/10)==0:
+  if ep%(nepochs/2)==0:
     print(ep/nepochs,nembeds)
     score = eval_(net,task)
     np.save(fpath+'-trep_%i'%ep,score)
@@ -104,4 +103,4 @@ for ep in range(nepochs):
   optiop.step()
 
 score = eval_(net,task)
-np.save(fpath+'-trep_nepochs',score)
+np.save(fpath+'-trep_%i'%nepochs,score)
