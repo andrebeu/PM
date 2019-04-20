@@ -6,42 +6,50 @@ from PMmodel import *
 
 ## sweeping params
 seed = int(sys.argv[1])
-stsize = int(sys.argv[2]) # 30
-num_pmtrials = int(sys.argv[3]) # 5
-pm_weight = int(sys.argv[4]) # 1
-EM=int(sys.argv[5]) 
-nback=int(sys.argv[6]) # 1
+signal = int(sys.argv[2])
+pmweight = int(sys.argv[3]) 
+EM = int(sys.argv[4]) 
 
-## constant params
 
+### constant
 # task
-ntokens_og=3
-edim_og=8
-edim_pm=0
-focal=1
-trseqlen = 20
+nback=1
+pmtrials = 5
+ntokens_og = 3
+edim = 8
+noise = edim-signal
+og_signal_dim = signal
+pm_signal_dim = signal
+og_noise_dim = noise
+pm_noise_dim = noise
+
 
 # network
-indim = edim_og+edim_pm
+stsize = 30
+indim = og_signal_dim+og_noise_dim
 batch=1
 outdim=3
 
-## training
-thresh = .95
+# training
 nepochs = 100000
+thresh = .95
+trseqlen=20
+
+
+
+###
+
+# model and task
+net = PMNet(indim,stsize,outdim,EM)
+task = NBackPMTask(nback,pmtrials,og_signal_dim,pm_signal_dim,og_noise_dim,pm_noise_dim,ntokens_og,seed)
 
 tr.manual_seed(seed)
 np.random.seed(seed)
 
 # model fpath
-fpath = 'model_data/EM_%i-stsize_%i-nback_%i-focal_%i-pmtrials_%i-pmweight_%s-seed_%i'%(
-          EM, stsize, nback, focal, num_pmtrials, pm_weight, seed)
+fpath = 'model_data/EM_%i-stsize_%i-nback__%i-pmtrials_%i-pmweight_%s-signal_%i-noise_%i-seed_%i'%(
+          EM, stsize, nback, pmtrials, pmweight, signal, noise, seed)
 print(fpath)
-
-# model and task
-net = PMNet(indim,stsize,outdim,EM,seed)
-task = NBackPMTask(nback,ntokens_og,num_pmtrials,edim_og,edim_pm,focal,seed)
-
 
 ## eval fun
 def eval_(net,task):
@@ -64,7 +72,7 @@ def eval_(net,task):
 print('train')
 
 # specify loss and optimizer
-loss_weight = tr.FloatTensor([1,1,pm_weight]) 
+loss_weight = tr.FloatTensor([1,1,pmweight]) 
 lossop = tr.nn.CrossEntropyLoss()
 optiop = tr.optim.Adam(net.parameters(), lr=0.0005)
 
@@ -96,4 +104,4 @@ for ep in range(nepochs):
   optiop.step()
 
 score = eval_(net,task)
-np.save(fpath+'-trep_final',score)
+np.save(fpath+'-trep_nepochs',score)

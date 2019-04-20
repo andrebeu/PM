@@ -13,18 +13,16 @@ printf "\n\n\n --ntasks-per-node=1 -c=8 ntasks-per-socket=4 \n\n\n"
 
 
 seed=${1}
-stsize=${2}
-num_pmtrials=${3}
-pm_weight=${4}
-em=${5}
-nback=${6}
+signal=${2}
+pmweight=${3}
+EM=${4}
 
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2
 
 printf "\n\n PM Task \n\n"
 
-srun python -u "/tigress/abeukers/wd/pm/pmtask.py" ${seed} ${stsize} ${num_pmtrials} ${pm_weight} ${em}
+srun python -u "/tigress/abeukers/wd/pm/pmtask.py" ${seed} ${signal} ${noise} ${pmweight} ${EM}
 
 
 printf "\n\nGPU profiling \n\n"

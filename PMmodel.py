@@ -7,31 +7,32 @@ tr_randn = lambda shape: tr.randn(*shape)
 tr_noise = tr_uniform 
 tr_embed = tr_uniform
 
-
 class NBackPMTask():
 
-  def __init__(self,nback,ntokens_og,num_pm_trials,edim_og,edim_pm,focal,seed=132):
+  def __init__(self,nback,num_pm_trials,
+    og_signal_dim,pm_signal_dim,og_noise_dim,pm_noise_dim,
+    ntokens_og,seed):
     """ 
     """
     np.random.seed(seed)
     tr.manual_seed(seed)
     self.nback = nback
-    self.ntokens_og = ntokens_og
     self.ntokens_pm = 1
+    self.ntokens_og = ntokens_og
+    # trials
     self.pm_token = ntokens_og
-    self.min_start_trials = 1
     self.num_pm_trials = num_pm_trials
-    # embedding
-    self.emat_initialized=True
-    self.edim_og = edim_og
-    self.edim_pm = edim_pm
-    self.noise_edim_og = edim_pm
-    self.noise_edim_pm = edim_og
-    self.focal = focal
+    self.min_start_trials = 1
+    # focality
+    self.og_signal_dim = og_signal_dim
+    self.pm_signal_dim = pm_signal_dim
+    self.og_noise_dim = og_noise_dim
+    self.pm_noise_dim = pm_noise_dim
+    assert og_signal_dim+og_noise_dim==pm_signal_dim+pm_noise_dim
     self.sample_emat()
     return None
 
-  def gen_seq(self,ntrials=30,pm_trial_position=None):
+  def gen_seq(self,ntrials=20,pm_trial_position=None):
     """
     if pm_trial_position is not specified, they are randomly sampled
       rand pm_trial_position for training, fixed for eval
@@ -59,36 +60,31 @@ class NBackPMTask():
       X_embed `(time,batch,edim)`[torch]
       Y_embed `(time,batch)`[torch]
     """
+    X_embed = -tr.ones(len(X_seq),self.og_signal_dim+self.og_noise_dim)
+    # find trials of corresponding types
     pm_trials_bool = X_seq >= self.ntokens_og
     pm_trials = np.where(pm_trials_bool)
     og_trials = np.where(np.logical_not(pm_trials_bool))
-    if self.focal:
-      X_embed = self.emat[X_seq]
-    else:
-      X_embed = -tr.ones(len(X_seq),self.edim_og+self.edim_pm)
-      # take signal
-      pm_embeds = self.emat_pm[X_seq[pm_trials] - self.ntokens_og] # (time,edim)
-      og_embeds = self.emat_og[X_seq[og_trials]] # (time,edim)
-      # make noise
-      pm_noise = tr_noise([len(pm_embeds),self.noise_edim_pm])
-      og_noise = tr_noise([len(og_embeds),self.noise_edim_og])
-      # cat signal and noise
-      pm_embeds = tr.cat([pm_embeds,pm_noise],-1)
-      og_embeds = tr.cat([og_noise,og_embeds],-1)
-      # put into respective positions
-      X_embed[pm_trials] = pm_embeds
-      X_embed[og_trials] = og_embeds 
+    # take signal_dim (time,edim_signal_dim)
+    pm_embeds = self.emat_pm[X_seq[pm_trials] - self.ntokens_og] 
+    og_embeds = self.emat_og[X_seq[og_trials]] 
+    # make noise (time,edim_noise)
+    pm_noise = tr_noise([len(pm_embeds),self.pm_noise_dim])
+    og_noise = tr_noise([len(og_embeds),self.og_noise_dim])
+    # cat signal_dim and noise (time,edim)
+    pm_embeds = tr.cat([pm_embeds,pm_noise],-1)
+    og_embeds = tr.cat([og_noise,og_embeds],-1)
+    # put into respective positions
+    X_embed[pm_trials] = pm_embeds
+    X_embed[og_trials] = og_embeds 
     # include batch dim   
     X_embed = tr.unsqueeze(X_embed,1)
     Y_embed = tr.unsqueeze(tr.LongTensor(Y_seq),1)
     return X_embed,Y_embed
 
   def sample_emat(self):
-    if self.focal:
-      self.emat = tr_embed([self.ntokens_og+self.ntokens_pm,self.edim_og+self.edim_pm])
-    else:
-      self.emat_og = tr_embed([self.ntokens_og,self.edim_og])
-      self.emat_pm = tr_embed([self.ntokens_pm,self.edim_pm])
+    self.emat_og = tr_embed([self.ntokens_og,self.og_signal_dim])
+    self.emat_pm = tr_embed([self.ntokens_pm,self.pm_signal_dim])
 
 
 
