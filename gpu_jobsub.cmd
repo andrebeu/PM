@@ -13,17 +13,17 @@ printf "\n\n\n --ntasks-per-node=1 -c=8 ntasks-per-socket=4 \n\n\n"
 
 
 seed=${1}
-signal=${2}
-pmweight=${3}
-EM=${4}
-pmtrials=${5}
+stsize=${2} 
+ntokens=${3} 
+seqlen=${4} 
+
 
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2
 
 printf "\n\n PI Network + PM Task \n\n"
 
-srun python -u "/tigress/abeukers/wd/pm/pmtask.py" ${seed} ${signal} ${noise} ${pmweight} ${EM} ${pmtrials}
+srun python -u "/tigress/abeukers/wd/pm/pisims.py" ${seed} ${stsize} ${ntokens} ${seqlen} 
 
 
 printf "\n\nGPU profiling \n\n"
