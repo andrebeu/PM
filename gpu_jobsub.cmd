@@ -21,7 +21,7 @@ pmtrials=${5}
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2
 
-printf "\n\n PM Task \n\n"
+printf "\n\n PI Network + PM Task \n\n"
 
 srun python -u "/tigress/abeukers/wd/pm/pmtask.py" ${seed} ${signal} ${noise} ${pmweight} ${EM} ${pmtrials}
 
