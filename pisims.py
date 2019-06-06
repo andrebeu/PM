@@ -16,8 +16,8 @@ seqlen = int(sys.argv[4])
 ntrials = 2
 switchmaps = 0
 # epochs
-neps_tr = 10
-neps_ev = 10
+neps_tr = 100000
+neps_ev = 1000
 
 model_fname = "LSTM_%i-ntokens_%i-seqlen_%i-ntrials_%i-switchmaps_%i-seed_%i"%(
                 stsize,ntokens,seqlen,ntrials,switchmaps,seed)
