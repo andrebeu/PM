@@ -87,3 +87,4 @@ ev_score = eval_model(net,task,neps_ev,ntrials,seqlen,switchmaps)
 fpath = "model_data/PITask/"+model_fname
 np.save(fpath+"-tracc",tr_acc)
 np.save(fpath+"-evscore",ev_score)
+tr.save(net.state_dict(),fpath+'-model.pt')
