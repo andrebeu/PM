@@ -1,1 +1,1 @@
-rsync -r -vam --update abeukers@tigergpu.princeton.edu:/tigress/abeukers/wd/pm/model_data/*.npy /Users/abeukers/wd/pm/model_data/
+rsync -r -vam --update abeukers@tigergpu.princeton.edu:/tigress/abeukers/wd/pm/model_data/PITask/*.npy /Users/abeukers/wd/pm/model_data/PITask/
