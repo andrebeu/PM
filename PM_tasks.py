@@ -42,7 +42,10 @@ class PurePM():
         np.random.permutation(np.arange(self.ntokens)) 
         for i in range(ntrials)
     ])
-    instruct_flags = np.concatenate([encode_instructs_2d,np.zeros([ntrials,seqlen])],1).astype(int) # (ntrials,seqlen+)
+    instruct_flags = np.concatenate([
+                        encode_instructs_2d,
+                        self.ntokens*np.ones([ntrials,seqlen])],
+                      1).astype(int) # (ntrials,seqlen+)
     instruct_flags = instruct_flags.reshape(-1)
     # use above sub-sequences to make x_embedding sequences
     response_probes = np.random.randint(0,self.ntokens,[ntrials,seqlen])
