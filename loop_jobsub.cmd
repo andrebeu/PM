@@ -9,7 +9,7 @@ wd_dir="/tigress/abeukers/wd/pm"
 ##
 
 declare -a stsize_arr=(40)
-declare -a ntokens_arr=(2)
+declare -a ntokens_arr=(2 3)
 declare -a seqlen_arr=(2 4 6 8)
 
 for seed in {0..10}; do 
