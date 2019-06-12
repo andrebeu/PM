@@ -12,6 +12,8 @@ tr_noise_og = tr_embed_pm
 
 
 class PurePM():
+  """ proactive interference / arbitrary binding task
+  """
 
   def __init__(self,ntokens=2,stimdim=2,seed=99):
     np.random.seed(seed)

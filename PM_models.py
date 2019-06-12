@@ -26,7 +26,7 @@ class PINet(tr.nn.Module):
     self.x2stim = tr.nn.Linear(self.stimdim,self.stimdim) # x2stim
     self.x2stim_relu = tr.nn.ReLU()
     # Main LSTM CELL
-    self.h_state,self.c_state = tr.rand(2,1,self.stsize,requires_grad=False)
+    self.initial_state = tr.rand(2,1,self.stsize,requires_grad=True) ## previously reqgrad=False
     self.cell_main = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
     # out proj
     self.cell2outhid = tr.nn.Linear(self.stsize,self.stsize)
@@ -51,7 +51,7 @@ class PINet(tr.nn.Module):
     # percept
     inseq = tr.cat([inst_seq,stim_seq],-1)
     # cell
-    self.h_state,self.c_state = self.h_state.data,self.c_state.data
+    self.h_state,self.c_state = self.initial_state ## previous h,c = h.data,c.data
     lstm_outputs = -tr.ones(len(inseq),1,self.stsize)
     for tstep in range(len(inseq)):
       self.h_state,self.c_state = self.cell_main(inseq[tstep],(self.h_state,self.c_state))
