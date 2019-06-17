@@ -9,21 +9,15 @@
 #SBATCH --ntasks-per-socket=2
 #SBATCH --gres=gpu:0		# number of gpus 4
 
-printf "\n\n\n --ntasks-per-node=1 -c=8 ntasks-per-socket=4 \n\n\n"
-
-
 seed=${1}
-stsize=${2} 
-ntokens=${3} 
-seqlen=${4} 
-
+switch=${2} 
 
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2
 
-printf "\n\n PI Network + PM Task \n\n"
+printf "\n\n PI Network - LSTM+EM \n\n"
 
-srun python -u "/tigress/abeukers/wd/pm/pisims.py" ${seed} ${stsize} ${ntokens} ${seqlen} 
+srun python -u "/tigress/abeukers/wd/pm/pisims.py" ${seed} ${switch}
 
 
 printf "\n\nGPU profiling \n\n"

@@ -8,14 +8,13 @@ from PM_tasks import *
 ## params
 # net
 seed = int(sys.argv[1])
-stsize = int(sys.argv[2])
+switchmaps = int(sys.argv[2])
+stsize = 25
 sdim = 10
 # task
-ntokens = int(sys.argv[3])
-seqlen = int(sys.argv[4])
+ntokens = 3
+seqlen = 3
 ntrials = 2
-switchmaps = 0
-
 
 model_fname = "LSTM_%i-ntokens_%i-seqlen_%i-ntrials_%i-switchmaps_%i-seed_%i"%(
                 stsize,ntokens,seqlen,ntrials,switchmaps,seed)
@@ -91,6 +90,7 @@ def eval_model(net,task,neps,ntrials,seqlen,switchmaps):
 ## train, eval, save
 neps_tr = 100000
 neps_ev = 1000
+
 for s in np.arange(1,10):
   # path
   neps = s*neps_tr
