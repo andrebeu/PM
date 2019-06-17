@@ -222,6 +222,7 @@ class PMTask_PI():
     return tseq,xseq_embed,yseq
 
 
+
 class PMTask_Focality():
   def __init__(self,nback,num_pm_trials,
     og_signal_dim,pm_signal_dim,og_noise_dim,pm_noise_dim,

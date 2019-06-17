@@ -21,21 +21,24 @@ class PINet(tr.nn.Module):
     self.resp_trial_flag = ninstructs-1
     self.stsize = stsize
     self.outdim = outdim
-    # embed instructions
+    # instruction layer
     self.embed_instruct = tr.nn.Embedding(self.ninstructs,self.instdim)
-    self.i2inst = tr.nn.Linear(self.instdim,self.instdim) 
-    # project stim2stim
-    self.x2stim = tr.nn.Linear(self.stimdim,self.stimdim) # x2stim
+    self.i2inst = tr.nn.Linear(self.instdim,self.instdim,bias=False) 
+    # sensory layer
+    self.lstm_stim = tr.nn.LSTMCell(self.stimdim,self.stimdim) # x2stim
+    self.initst_stim = tr.rand(2,1,self.stimdim,requires_grad=True)
+    self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=False)
     # Main LSTM CELL
-    self.initial_state = tr.rand(2,1,self.stsize,requires_grad=True) ## previously reqgrad=False
-    self.cell_main = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
+    self.lstm_main = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
+    self.initst_main = tr.rand(2,1,self.stsize,requires_grad=True)
     # out proj
-    self.cell2outhid = tr.nn.Linear(self.stsize,self.stsize)
-    self.ff_out2 = tr.nn.Linear(self.stsize,self.outdim)
-    # Memory LSTM CELL
+    self.cell2outhid = tr.nn.Linear(self.stsize,self.stsize,bias=False)
+    self.ff_hid2ulog = tr.nn.Linear(self.stsize,self.outdim,bias=False)
+    # Episodic memory
     self.EMbool = EMbool
     self.EM_key = []
     self.EM_value = []
+    # self.ff_em2cell = tr.nn.Linear(self.stsize,self.stsize)
     return None
 
   def forward(self,iseq,xseq):
@@ -43,39 +46,46 @@ class PINet(tr.nn.Module):
     xseq [time,1,edim]: seq of embedded stimuli
     iseq [time,1]: seq indicating trial type (e.g. encode vs respond)
     """
+    # reset memory
+    self.EM_key,self.EM_value = [],[]
     # instruction path
     inst_seq = self.embed_instruct(iseq)
     inst_seq = self.i2inst(inst_seq).relu()
-    # sensory path
-    stim_seq = self.x2stim(xseq).relu()
-    # percept
-    inseq = tr.cat([inst_seq,stim_seq],-1)
-    # initialize cell state and output array
-    self.hstate,self.cstate = self.initial_state 
-    lstm_outputs = -tr.ones(len(inseq),1,self.stsize)
-    # reset memory
-    self.EM_key,self.EM_value = [],[]
-    # trial loop
-    for tstep in range(len(inseq)):
-      print('\n-',iseq[tstep])
-      # retrieve
-      if self.EMbool and iseq[tstep]==self.resp_trial_flag: 
-        q = stim_seq[tstep].detach().numpy()
+    ## initial states
+    self.h_stim,self.c_stim = self.initst_stim
+    self.h_main,self.c_main = self.initst_main 
+    lstm_outputs = -tr.ones(len(xseq),1,self.stsize)
+    ## trial loop 
+    for tstep in range(len(xseq)):
+      # print('\n-',iseq[tstep],xseq[tstep][0,0]) 
+      ## sensory layer
+      self.h_stim,self.c_stim = self.lstm_stim(xseq[tstep],(self.h_stim,self.c_stim))
+      # self.h_stim = self.ff_stim(xseq[tstep])
+      ## EM retrieval 
+      if self.EMbool and (iseq[tstep] == self.resp_trial_flag):
+        q = self.h_stim.detach().numpy()
         K = np.concatenate(self.EM_key)
-        qksim = 1-pairwise_distances(q,K,metric='cosine').round(2).squeeze()
+        qksim = -pairwise_distances(q,K,metric='cosine').round(2).squeeze()
         retrieve_index = qksim.argmax()
-        self.r_cstate = tr.Tensor(self.EM_value[retrieve_index])
-        self.cstate = self.cstate + self.r_cstate
-      # lstm 
-      self.hstate,self.cstate = self.cell_main(inseq[tstep],(self.hstate,self.cstate))
-      lstm_outputs[tstep] = self.hstate
-      # encode
-      if self.EMbool and iseq[tstep]!=self.resp_trial_flag: 
-        self.EM_key.append(stim_seq[tstep].detach().numpy())
-        self.EM_value.append(self.cstate.detach().numpy())
-    # output
+        # print('EM:',qksim,retrieve_index)
+        self.r_state = tr.Tensor(self.EM_value[retrieve_index])
+        # transform and incorporate memory
+        # self.r_state = self.ff_em2cell(self.r_state)
+        self.c_main += self.r_state
+      ## main layer
+      lstm_main_in = tr.cat([inst_seq[tstep],self.h_stim],-1)
+      self.h_main,self.c_main = self.lstm_main(lstm_main_in,(self.h_main,self.c_main))
+      lstm_outputs[tstep] = self.h_main
+      ## EM encoding
+      if self.EMbool and (iseq[tstep] != self.resp_trial_flag):
+        # em_key = concat ([h_stim,c_stim])
+        self.EM_key.append(self.h_stim.detach().numpy())
+        # try encoding h_main as value: 
+        # this should produce same output as duing encoding phase
+        self.EM_value.append(self.c_main.detach().numpy())
+    ## output layer
     lstm_outputs = self.cell2outhid(lstm_outputs).relu()
-    yhat_ulog = self.ff_out2(lstm_outputs)
+    yhat_ulog = self.ff_hid2ulog(lstm_outputs)
     return yhat_ulog
 
 
@@ -95,10 +105,10 @@ class WMEM_PM(tr.nn.Module):
     self.stim2percept_relu = tr.nn.ReLU()
     # Main LSTM CELL
     self.initial_state = tr.rand(2,1,self.stsize,requires_grad=True)
-    self.cell_main = tr.nn.LSTMCell(pdim,stsize)
+    self.lstm_main = tr.nn.LSTMCell(pdim,stsize)
     self.cell2outhid = tr.nn.Linear(stsize,stsize)
     self.cell2outhid_relu = tr.nn.ReLU()
-    self.ff_out2 = tr.nn.Linear(stsize,outdim)
+    self.ff_hid2ulog = tr.nn.Linear(stsize,outdim)
     # Memory LSTM CELL
     self.rgate = tr.nn.Linear(pdim,stsize)
     self.sigm = tr.nn.Tanh()
@@ -125,7 +135,7 @@ class WMEM_PM(tr.nn.Module):
     # compute internal state for pm_cue 
     lstm_output,lstm_state = self.initial_state
     # lstm_output,lstm_state = tr.rand(2,1,self.stsize,requires_grad=False)
-    lstm_output_pm,lstm_state_pm = self.cell_main(percept_pm_cue,(lstm_output,lstm_state))
+    lstm_output_pm,lstm_state_pm = self.lstm_main(percept_pm_cue,(lstm_output,lstm_state))
     lstm_outs[0] = lstm_output_pm
     ## task 
     lstm_output,lstm_state = lstm_output_pm,lstm_state_pm
@@ -144,11 +154,11 @@ class WMEM_PM(tr.nn.Module):
         self.rgate_act[t] = rgate_act
         lstm_state = rgate_act*lstm_state_pm + lstm_state
       # compute cell prediction
-      lstm_output,lstm_state = self.cell_main(percept[t,:,:],(lstm_output,lstm_state))
+      lstm_output,lstm_state = self.lstm_main(percept[t,:,:],(lstm_output,lstm_state))
       lstm_outs[t] = lstm_output
     # outporj
     yhat = self.cell2outhid(lstm_outs)
     yhat = self.cell2outhid_relu(yhat)
-    yhat = self.ff_out2(yhat)
+    yhat = self.ff_hid2ulog(yhat)
     return yhat
 

@@ -15,7 +15,9 @@ ntokens = int(sys.argv[3])
 seqlen = int(sys.argv[4])
 ntrials = 2
 switchmaps = 0
-
+# epochs
+neps_tr = 100000
+neps_ev = 1000
 
 model_fname = "LSTM_%i-ntokens_%i-seqlen_%i-ntrials_%i-switchmaps_%i-seed_%i"%(
                 stsize,ntokens,seqlen,ntrials,switchmaps,seed)
@@ -78,29 +80,11 @@ def eval_model(net,task,neps,ntrials,seqlen,switchmaps):
   return score
 
 
+## train and eval
+tr_acc = train_model(net,task,neps_tr,ntrials,seqlen,switchmaps)
+ev_score = eval_model(net,task,neps_ev,ntrials,seqlen,switchmaps)
 
-# tr_acc = train_model(net,task,neps_tr,ntrials,seqlen,switchmaps)
-# ev_score = eval_model(net,task,neps_ev,ntrials,seqlen,switchmaps)
-
-# fpath = "model_data/PITask/"+model_fname
-# np.save(fpath+"-tracc",tr_acc)
-# np.save(fpath+"-evscore",ev_score)
-# tr.save(net.state_dict(),fpath+'-model.pt')
-
-
-## train, eval, save
-neps_tr = 100000
-neps_ev = 1000
-for s in np.arange(1,10):
-  # path
-  neps = s*neps_tr
-  fpath = "model_data/PITask/"+model_fname+'-tr_%i'%neps
-  print(fpath)
-  # train and eval
-  tr_acc = train_model(net,task,neps_tr,ntrials,seqlen,switchmaps)
-  ev_score = eval_model(net,task,neps_ev,ntrials,seqlen,switchmaps)
-  # saving
-  np.save(fpath+"-tracc",tr_acc)
-  np.save(fpath+"-evscore",ev_score)
-  tr.save(net.state_dict(),fpath+'-model.pt')
-  
+fpath = "model_data/PITask/"+model_fname
+np.save(fpath+"-tracc",tr_acc)
+np.save(fpath+"-evscore",ev_score)
+tr.save(net.state_dict(),fpath+'-model.pt')
