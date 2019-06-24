@@ -16,7 +16,7 @@ ntokens = 3
 seqlen = 3
 ntrials = 2
 
-model_fname = "LSTM_%i-ntokens_%i-seqlen_%i-ntrials_%i-switchmaps_%i-seed_%i"%(
+model_fname = "LSTM_%i-EM_conjcode-ntokens_%i-seqlen_%i-ntrials_%i-switchmaps_%i-seed_%i"%(
                 stsize,ntokens,seqlen,ntrials,switchmaps,seed)
 print(model_fname)
 

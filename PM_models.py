@@ -14,27 +14,28 @@ class PINet(tr.nn.Module):
     super().__init__()
     # seed
     tr.manual_seed(seed)
-    # layer sizes
+    ## layer sizes 
     self.stimdim = stimdim
     self.instdim = stimdim
     self.ninstructs = ninstructs
     self.resp_trial_flag = ninstructs-1
     self.stsize = stsize
     self.outdim = outdim
-    # instruction layer
+    self.emdim = stsize
+    ## instruction layer
     self.embed_instruct = tr.nn.Embedding(self.ninstructs,self.instdim)
     self.i2inst = tr.nn.Linear(self.instdim,self.instdim,bias=False) 
-    # sensory layer
-    self.lstm_stim = tr.nn.LSTMCell(self.stimdim,self.stimdim) # x2stim
-    self.initst_stim = tr.rand(2,1,self.stimdim,requires_grad=True)
+    ## sensory layer
+    # self.lstm_stim = tr.nn.LSTMCell(self.stimdim,self.stimdim) # x2stim
+    # self.initst_stim = tr.rand(2,1,self.stimdim,requires_grad=True)
     self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=False)
-    # Main LSTM CELL
+    ## Main LSTM CELL
     self.lstm_main = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
     self.initst_main = tr.rand(2,1,self.stsize,requires_grad=True)
-    # out proj
-    self.cell2outhid = tr.nn.Linear(self.stsize,self.stsize,bias=False)
+    ## out proj
+    self.cell2outhid = tr.nn.Linear(self.stsize+self.emdim,self.stsize,bias=False)
     self.ff_hid2ulog = tr.nn.Linear(self.stsize,self.outdim,bias=False)
-    # Episodic memory
+    ## Episodic memory
     self.EMbool = EMbool
     self.EM_key = []
     self.EM_value = []
@@ -52,40 +53,41 @@ class PINet(tr.nn.Module):
     inst_seq = self.embed_instruct(iseq)
     inst_seq = self.i2inst(inst_seq).relu()
     ## initial states
-    self.h_stim,self.c_stim = self.initst_stim
+    # self.h_stim,self.c_stim = self.initst_stim
     self.h_main,self.c_main = self.initst_main 
-    lstm_outputs = -tr.ones(len(xseq),1,self.stsize)
+    cell_outputs = -tr.ones(len(xseq),1,self.stsize+self.emdim)
     ## trial loop 
     for tstep in range(len(xseq)):
       # print('\n-',iseq[tstep],xseq[tstep][0,0]) 
       ## sensory layer
-      self.h_stim,self.c_stim = self.lstm_stim(xseq[tstep],(self.h_stim,self.c_stim))
-      # self.h_stim = self.ff_stim(xseq[tstep])
-      ## EM retrieval 
-      if self.EMbool and (iseq[tstep] == self.resp_trial_flag):
-        q = self.h_stim.detach().numpy()
-        K = np.concatenate(self.EM_key)
-        qksim = -pairwise_distances(q,K,metric='cosine').round(2).squeeze()
-        retrieve_index = qksim.argmax()
-        # print('EM:',qksim,retrieve_index)
-        self.r_state = tr.Tensor(self.EM_value[retrieve_index])
-        # transform and incorporate memory
-        # self.r_state = self.ff_em2cell(self.r_state)
-        self.c_main += self.r_state
+      self.h_stim = self.ff_stim(xseq[tstep])
       ## main layer
       lstm_main_in = tr.cat([inst_seq[tstep],self.h_stim],-1)
       self.h_main,self.c_main = self.lstm_main(lstm_main_in,(self.h_main,self.c_main))
-      lstm_outputs[tstep] = self.h_main
+      ## EM retrieval 
+      if self.EMbool and (iseq[tstep] == self.resp_trial_flag):
+        query = np.concatenate([
+                  self.h_stim.detach().numpy(),
+                  self.h_main.detach().numpy()
+                  ],-1)
+        EM_K = np.concatenate(self.EM_key)
+        qksim = -pairwise_distances(query,EM_K,metric='cosine').round(2).squeeze()
+        retrieve_index = qksim.argmax()
+        self.r_state = tr.Tensor(self.EM_value[retrieve_index])
       ## EM encoding
-      if self.EMbool and (iseq[tstep] != self.resp_trial_flag):
-        # em_key = concat ([h_stim,c_stim])
-        self.EM_key.append(self.h_stim.detach().numpy())
-        # try encoding h_main as value: 
-        # this should produce same output as duing encoding phase
-        self.EM_value.append(self.c_main.detach().numpy())
+      else:
+        self.r_state = tr.zeros_like(self.h_main)
+        em_key = np.concatenate([
+                  self.h_stim.detach().numpy(),
+                  self.h_main.detach().numpy()
+                  ],-1)
+        self.EM_key.append(em_key)
+        self.EM_value.append(self.h_main.detach().numpy())
+      ### timestep output
+      cell_outputs[tstep] = tr.cat([self.h_main,self.r_state],-1)
     ## output layer
-    lstm_outputs = self.cell2outhid(lstm_outputs).relu()
-    yhat_ulog = self.ff_hid2ulog(lstm_outputs)
+    cell_outputs = self.cell2outhid(cell_outputs).relu()
+    yhat_ulog = self.ff_hid2ulog(cell_outputs)
     return yhat_ulog
 
 
