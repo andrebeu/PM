@@ -75,7 +75,7 @@ class PINet(tr.nn.Module):
         retrieve_index = qksim.argmax()
         self.r_state = tr.Tensor(self.EM_value[retrieve_index])
       ## EM encoding
-      else:
+      elif self.EMbool and (iseq[tstep] != self.resp_trial_flag):
         self.r_state = tr.zeros_like(self.h_main)
         em_key = np.concatenate([
                   self.h_stim.detach().numpy(),
@@ -83,6 +83,8 @@ class PINet(tr.nn.Module):
                   ],-1)
         self.EM_key.append(em_key)
         self.EM_value.append(self.h_main.detach().numpy())
+      else:
+        self.r_state = tr.zeros_like(self.h_main)
       ### timestep output
       cell_outputs[tstep] = tr.cat([self.h_main,self.r_state],-1)
     ## output layer
