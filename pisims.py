@@ -12,8 +12,8 @@ switchmaps = int(sys.argv[2])
 stsize = 25
 sdim = 10
 # task
-ntokens = 3
-seqlen = 3
+ntokens = 5
+seqlen = 5
 ntrials = 2
 
 model_fname = "LSTM_%i-EM_conjcode-ntokens_%i-seqlen_%i-ntrials_%i-switchmaps_%i-seed_%i"%(
@@ -91,7 +91,7 @@ def eval_model(net,task,neps,ntrials,seqlen,switchmaps):
 neps_tr = 100000
 neps_ev = 1000
 
-for s in np.arange(1,10):
+for s in np.arange(1,5):
   # path
   neps = s*neps_tr
   fpath = "model_data/PITask/"+model_fname+'-tr_%i'%neps
