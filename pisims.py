@@ -12,11 +12,11 @@ switchmaps = int(sys.argv[2])
 stsize = 25
 sdim = 10
 # task
-ntokens = 5
-seqlen = 5
+ntokens = 3
+seqlen = 3
 ntrials = 2
 
-model_fname = "LSTM_%i-EM_conjcode-ntokens_%i-seqlen_%i-ntrials_%i-switchmaps_%i-seed_%i"%(
+model_fname = "LSTM_%i-EM_0-ntokens_%i-seqlen_%i-ntrials_%i-switchmaps_%i-seed_%i"%(
                 stsize,ntokens,seqlen,ntrials,switchmaps,seed)
 print(model_fname)
 
@@ -31,9 +31,9 @@ net = PINet(
         stsize=stsize,
         outdim=ntokens,
         ninstructs=ntokens+1,
+        EMbool=0,
         seed=seed
 )
-
 
 ## funs
 maxsoftmax = lambda ulog: tr.argmax(tr.softmax(ulog,-1),-1)
@@ -76,15 +76,6 @@ def eval_model(net,task,neps,ntrials,seqlen,switchmaps):
     score[ep] = (maxsoftmax(yhat_ulog) == ytarget).squeeze()
   return score
 
-
-
-# tr_acc = train_model(net,task,neps_tr,ntrials,seqlen,switchmaps)
-# ev_score = eval_model(net,task,neps_ev,ntrials,seqlen,switchmaps)
-
-# fpath = "model_data/PITask/"+model_fname
-# np.save(fpath+"-tracc",tr_acc)
-# np.save(fpath+"-evscore",ev_score)
-# tr.save(net.state_dict(),fpath+'-model.pt')
 
 
 ## train, eval, save

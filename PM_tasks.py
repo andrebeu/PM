@@ -28,47 +28,17 @@ class PurePM():
     self.emat = tr.Tensor(self.emat)
     return None
 
-  def gen_ep_data_old(self,ntrials=2,seqlen=2,switchmaps=False):
-    """ 
-    seqlen: response_probes_per_trials
-      NB length of given trial will be ntokens+seqlen
-    output compatible with model input
-    instruct_flags: [time,1]
-    xseq_embed: [time,1,stimdim]
-    yseq: [time,1]
-    """
-    # generate encoding and response sub-sequences for each trial
-    encode_instructs_2d = np.array([
-        np.random.permutation(np.arange(self.ntokens)) 
-        for i in range(ntrials)
-    ])
-    instruct_flags = np.concatenate([
-                        encode_instructs_2d,
-                        self.ntokens*np.ones([ntrials,seqlen])],
-                      1).astype(int) # (ntrials,seqlen+)
-    instruct_flags = instruct_flags.reshape(-1)
-    # use above sub-sequences to make x_embedding sequences
-    response_probes = np.random.randint(0,self.ntokens,[ntrials,seqlen])
-    xseq_int_2d = np.concatenate([encode_instructs_2d,response_probes],1)
-    xseq_embed = []
-    for xseq_int in xseq_int_2d:
-      if switchmaps:
-        self.emat = self.emat[np.random.permutation(np.arange(self.ntokens))]
-      xseq_embed_trial = self.emat[xseq_int]
-      xseq_embed.extend(xseq_embed_trial)
-    # format output
-    instruct_flags = tr.unsqueeze(tr.LongTensor(instruct_flags),1)
-    yseq = tr.unsqueeze(tr.LongTensor(xseq_int_2d.reshape(-1)),1)
-    xseq_embed = tr.stack(xseq_embed).unsqueeze(1)
-    return instruct_flags,xseq_embed,yseq
+  def shuffle_emat(self):
+    self.emat = self.emat[np.random.permutation(np.arange(self.ntokens))]
+    return None
 
   def gen_ep_data(self,ntrials=2,seqlen=2,switchmaps=False):
     """ 
     seqlen: response_probes_per_trials
       NB length of given trial will be ntokens+seqlen
     output compatible with model input
-    instruct_flags: [time,1]
-    xseq_embed: [time,1,stimdim]
+    instruct_seq: [time,1]
+    stim_seq: [time,1,stimdim]
     yseq: [time,1]
     """
 
@@ -77,26 +47,28 @@ class PurePM():
         np.random.permutation(np.arange(self.ntokens)) 
         for i in range(ntrials)
     ])
-    instruct_flags = np.concatenate([
+    instruct_seq = np.concatenate([
                         encode_instructs_2d,
                         self.ntokens*np.ones([ntrials,seqlen])],
                       1).astype(int) # (ntrials,seqlen+)
-    instruct_flags = instruct_flags.reshape(-1)
+    instruct_seq = instruct_seq.reshape(-1)
     # use above sub-sequences to make x_embedding sequences
-    response_probes = np.random.randint(0,self.ntokens,[ntrials,seqlen])
-    xseq_int_2d = np.concatenate([encode_instructs_2d,response_probes],1)
-    xseq_embed = []
-    for xseq_int in xseq_int_2d:
+    response_probes_int_2d = np.random.randint(0,self.ntokens,[ntrials,seqlen])
+    stim_seq_int_2d = np.concatenate([encode_instructs_2d,response_probes_int_2d],1)
+    ## flatten 2D array [ntrials,nprobes]->[ntrials*nprobes] and embed stim_seq 
+    stim_seq = []
+    for stim_seq_int in stim_seq_int_2d: # loop over trials
       if switchmaps:
-        self.emat = self.emat[np.random.permutation(np.arange(self.ntokens))]
-      xseq_embed_trial = self.emat[xseq_int]
-      # xseq_embed_trial
-      xseq_embed.extend(xseq_embed_trial)
+        self.shuffle_emat()
+      # sequence of stim for current trial
+      stim_seq_trial = self.emat[stim_seq_int]
+      # sequence of stim 
+      stim_seq.extend(stim_seq_trial)
     # format output
-    instruct_flags = tr.unsqueeze(tr.LongTensor(instruct_flags),1)
-    yseq = tr.unsqueeze(tr.LongTensor(xseq_int_2d.reshape(-1)),1)
-    xseq_embed = tr.stack(xseq_embed).unsqueeze(1)
-    return instruct_flags,xseq_embed,yseq
+    instruct_seq = tr.unsqueeze(tr.LongTensor(instruct_seq),1)
+    yseq = tr.unsqueeze(tr.LongTensor(stim_seq_int_2d.reshape(-1)),1)
+    stim_seq = tr.stack(stim_seq).unsqueeze(1)
+    return instruct_seq,stim_seq,yseq
 
 
 
