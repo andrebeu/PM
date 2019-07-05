@@ -16,6 +16,12 @@ declare -a ntrials_arr=(2 3 4)
 
 for seed in {0..20}; do 
 	for switch in "${switch_arr[@]}"; do 
-		sbatch ${wd_dir}/gpu_jobsub.cmd ${seed} ${switch} ${ntokens} ${seqlen} ${ntrials}
+    for ntokens in "${ntokens_arr[@]}"; do 
+      for seqlen in "${seqlen_arr[@]}"; do 
+        for ntrials in "${ntrials_arr[@]}"; do 
+      		sbatch ${wd_dir}/gpu_jobsub.cmd ${seed} ${switch} ${ntokens} ${seqlen} ${ntrials}
+        done
+      done
+    done
 	done
 done
