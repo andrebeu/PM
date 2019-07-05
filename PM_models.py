@@ -37,6 +37,7 @@ class PINet(tr.nn.Module):
     self.ff_hid2ulog = tr.nn.Linear(self.stsize,self.outdim,bias=False)
     ## Episodic memory
     self.EMbool = EMbool
+    self.WMbool = True
     self.EM_key = []
     self.EM_value = []
     # self.ff_em2cell = tr.nn.Linear(self.stsize,self.stsize)
@@ -47,6 +48,7 @@ class PINet(tr.nn.Module):
     xseq [time,1,edim]: seq of embedded stimuli
     iseq [time,1]: seq indicating trial type (e.g. encode vs respond)
     """
+    self.cstateL,self.hstateL = [],[]
     # reset memory
     self.EM_key,self.EM_value = [],[]
     # instruction path
@@ -64,6 +66,8 @@ class PINet(tr.nn.Module):
       ## main layer
       lstm_main_in = tr.cat([inst_seq[tstep],self.h_stim],-1)
       self.h_main,self.c_main = self.lstm_main(lstm_main_in,(self.h_main,self.c_main))
+      self.cstateL.append(self.c_main.detach().numpy().squeeze())
+      self.hstateL.append(self.h_main.detach().numpy().squeeze())
       ## EM retrieval 
       if self.EMbool and (iseq[tstep] == self.resp_trial_flag):
         query = np.concatenate([
@@ -86,6 +90,8 @@ class PINet(tr.nn.Module):
       else:
         self.r_state = tr.zeros_like(self.h_main)
       ### timestep output
+      if self.WMbool == False:
+        self.h_main = tr.zeros_like(self.h_main)
       cell_outputs[tstep] = tr.cat([self.h_main,self.r_state],-1)
     ## output layer
     cell_outputs = self.cell2outhid(cell_outputs).relu()

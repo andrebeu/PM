@@ -12,11 +12,11 @@ switchmaps = int(sys.argv[2])
 stsize = 25
 sdim = 10
 # task
-ntokens = 3
-seqlen = 3
-ntrials = 2
+ntokens = int(sys.argv[3])
+seqlen = int(sys.argv[4])
+ntrials = int(sys.argv[5])
 
-model_fname = "LSTM_%i-EM_0-ntokens_%i-seqlen_%i-ntrials_%i-switchmaps_%i-seed_%i"%(
+model_fname = "LSTM_%i-EM_conjcode-ntokens_%i-seqlen_%i-ntrials_%i-switchmaps_%i-seed_%i"%(
                 stsize,ntokens,seqlen,ntrials,switchmaps,seed)
 print(model_fname)
 
@@ -25,13 +25,12 @@ task = PurePM(
         stimdim=sdim,
         seed=seed
 )
-
 net = PINet(
         stimdim=sdim,
         stsize=stsize,
         outdim=ntokens,
         ninstructs=ntokens+1,
-        EMbool=0,
+        EMbool=1,
         seed=seed
 )
 
@@ -79,10 +78,10 @@ def eval_model(net,task,neps,ntrials,seqlen,switchmaps):
 
 
 ## train, eval, save
-neps_tr = 100000
+neps_tr = 20000
 neps_ev = 1000
 
-for s in np.arange(1,5):
+for s in np.arange(1,10):
   # path
   neps = s*neps_tr
   fpath = "model_data/PITask/"+model_fname+'-tr_%i'%neps

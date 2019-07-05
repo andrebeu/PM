@@ -11,13 +11,16 @@
 
 seed=${1}
 switch=${2} 
+ntokens=${3}
+seqlen=${4}
+ntrials=${5}
 
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2
 
 printf "\n\n PI Network - LSTM+EM \n\n"
 
-srun python -u "/tigress/abeukers/wd/pm/pisims.py" ${seed} ${switch}
+srun python -u "/tigress/abeukers/wd/pm/pisims.py" ${seed} ${switch} ${ntokens} ${seqlen} ${ntrials}
 
 
 printf "\n\nGPU profiling \n\n"

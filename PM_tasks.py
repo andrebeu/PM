@@ -28,8 +28,11 @@ class PurePM():
     self.emat = tr.Tensor(self.emat)
     return None
 
-  def shuffle_emat(self):
-    self.emat = self.emat[np.random.permutation(np.arange(self.ntokens))]
+  def remap(self,remap_mode):
+    if remap_mode == 'permute':
+      self.emat = self.emat[np.random.permutation(np.arange(self.ntokens))]
+    elif remap_mode == 'roll':
+      self.emat = self.emat[np.roll(np.arange(self.ntokens),1)]
     return None
 
   def gen_ep_data(self,ntrials=2,seqlen=2,switchmaps=False):
@@ -59,7 +62,7 @@ class PurePM():
     stim_seq = []
     for stim_seq_int in stim_seq_int_2d: # loop over trials
       if switchmaps:
-        self.shuffle_emat()
+        self.remap(remap_mode='roll')
       # sequence of stim for current trial
       stim_seq_trial = self.emat[stim_seq_int]
       # sequence of stim 
