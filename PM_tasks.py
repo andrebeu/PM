@@ -28,7 +28,7 @@ class PurePM():
     self.emat = tr.Tensor(self.emat)
     return None
 
-  def remap(self,remap_mode):
+  def remap(self,remap_mode='roll'):
     if remap_mode == 'permute':
       self.emat = self.emat[np.random.permutation(np.arange(self.ntokens))]
     elif remap_mode == 'roll':
@@ -62,7 +62,7 @@ class PurePM():
     stim_seq = []
     for stim_seq_int in stim_seq_int_2d: # loop over trials
       if switchmaps:
-        self.remap(remap_mode='roll')
+        self.remap()
       # sequence of stim for current trial
       stim_seq_trial = self.emat[stim_seq_int]
       # sequence of stim 
