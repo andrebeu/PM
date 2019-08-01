@@ -14,24 +14,23 @@ tr_noise_og = tr_embed_pm
 class PurePM():
   """ proactive interference / arbitrary binding task
   """
-
   def __init__(self,ntokens=2,stimdim=2,seed=99):
     np.random.seed(seed)
     tr.manual_seed(seed)
     self.ntokens = ntokens
     self.stimdim = stimdim
     # initialize emat
-    self.randomize_emat()
+    self.sample_emat()
 
-  def randomize_emat(self):
+  def sample_emat(self):
     self.emat = np.random.uniform(0,1,[self.ntokens,self.stimdim])
     self.emat = tr.Tensor(self.emat)
     return None
 
-  def remap(self,remap_mode='roll'):
-    if remap_mode == 'permute':
+  def resort_emat(self,resort_mode='permute'):
+    if resort_mode == 'permute':
       self.emat = self.emat[np.random.permutation(np.arange(self.ntokens))]
-    elif remap_mode == 'roll':
+    elif resort_mode == 'roll':
       self.emat = self.emat[np.roll(np.arange(self.ntokens),1)]
     return None
 
@@ -44,7 +43,6 @@ class PurePM():
     stim_seq: [time,1,stimdim]
     yseq: [time,1]
     """
-
     # generate encoding and response sub-sequences for each trial
     encode_instructs_2d = np.array([
         np.random.permutation(np.arange(self.ntokens)) 
@@ -58,11 +56,12 @@ class PurePM():
     # use above sub-sequences to make x_embedding sequences
     response_probes_int_2d = np.random.randint(0,self.ntokens,[ntrials,seqlen])
     stim_seq_int_2d = np.concatenate([encode_instructs_2d,response_probes_int_2d],1)
-    ## flatten 2D array [ntrials,nprobes]->[ntrials*nprobes] and embed stim_seq 
+    ## flatten 2D array [ntrials,nprobes]->[ntrials*nprobes] and embed stim_seq [ntrials*nprobes,edim]
     stim_seq = []
-    for stim_seq_int in stim_seq_int_2d: # loop over trials
+    # print(stim_seq.shape)
+    for trialn,stim_seq_int in enumerate(stim_seq_int_2d): # loop over trials
       if switchmaps:
-        self.remap()
+        self.resort_emat()
       # sequence of stim for current trial
       stim_seq_trial = self.emat[stim_seq_int]
       # sequence of stim 
@@ -70,7 +69,7 @@ class PurePM():
     # format output
     instruct_seq = tr.unsqueeze(tr.LongTensor(instruct_seq),1)
     yseq = tr.unsqueeze(tr.LongTensor(stim_seq_int_2d.reshape(-1)),1)
-    stim_seq = tr.stack(stim_seq).unsqueeze(1)
+    stim_seq = tr.stack(stim_seq,0).unsqueeze(1)
     return instruct_seq,stim_seq,yseq
 
 

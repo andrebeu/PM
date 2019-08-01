@@ -8,26 +8,27 @@ from sklearn.metrics import pairwise_distances
 assumes first input is the PM cue
 """
 
+tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
+
 class PINet(tr.nn.Module):
 
-  def __init__(self,stimdim,stsize,outdim,ninstructs,EMbool=True,seed=132):
+  def __init__(self,stimdim,stsize,outdim,nmaps,EMbool=True,seed=132):
     super().__init__()
     # seed
     tr.manual_seed(seed)
     ## layer sizes 
     self.stimdim = stimdim
     self.instdim = stimdim
-    self.ninstructs = ninstructs
-    self.resp_trial_flag = ninstructs-1
+    self.nmaps = nmaps
+    self.resp_trial_flag = nmaps-1
     self.stsize = stsize
     self.outdim = outdim
     self.emdim = stsize
     ## instruction layer
-    self.embed_instruct = tr.nn.Embedding(self.ninstructs,self.instdim)
+    self.embed_instruct = tr.nn.Embedding(self.nmaps,self.instdim)
     self.i2inst = tr.nn.Linear(self.instdim,self.instdim,bias=False) 
     ## sensory layer
-    # self.lstm_stim = tr.nn.LSTMCell(self.stimdim,self.stimdim) # x2stim
-    # self.initst_stim = tr.rand(2,1,self.stimdim,requires_grad=True)
+    # self.stim_emat = tr_uniform(0,1,[self.nmaps,self.stimdim])
     self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=False)
     ## Main LSTM CELL
     self.lstm_main = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
@@ -43,9 +44,16 @@ class PINet(tr.nn.Module):
     # self.ff_em2cell = tr.nn.Linear(self.stsize,self.stsize)
     return None
 
+  # def shuffle_semat(self,mode='permute'):
+  #   if remap_mode == 'permute':
+  #     self.stim_emat = self.stim_emat[np.random.permutation(np.arange(self.nmaps))]
+  #   elif remap_mode == 'roll':
+  #     self.stim_emat = self.stim_emat[np.roll(np.arange(self.nmaps),1)]
+  #   return None
+
   def forward(self,iseq,xseq):
     """
-    xseq [time,1,edim]: seq of embedded stimuli
+    xseq [time,1,edim]: seq of int stimuli
     iseq [time,1]: seq indicating trial type (e.g. encode vs respond)
     """
     self.cstateL,self.hstateL = [],[]
@@ -54,6 +62,8 @@ class PINet(tr.nn.Module):
     # instruction path
     inst_seq = self.embed_instruct(iseq)
     inst_seq = self.i2inst(inst_seq).relu()
+    ## stimulus embedding
+    # xseq = self.stim_emat[xseq]
     ## initial states
     # self.h_stim,self.c_stim = self.initst_stim
     self.h_main,self.c_main = self.initst_main 

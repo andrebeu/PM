@@ -53,11 +53,12 @@ def train_model(net,task,neps,ntrials,seqlen,switchmaps):
     trial_acc = np.mean((maxsoftmax(yhat_ulog) == ytarget).numpy())
     acc[ep] = trial_acc
     # backprop
+    loss = 0
     for tstep in range(len(tseq)):
-      optiop.zero_grad()
-      loss = lossop(yhat_ulog[tstep],ytarget[tstep])
-      loss.backward(retain_graph=True)
-      optiop.step()
+      loss += lossop(yhat_ulog[tstep],ytarget[tstep])
+    optiop.zero_grad()
+    loss.backward(retain_graph=True)
+    optiop.step()
     if trial_acc>=.99:
       task.randomize_emat()
   return acc
