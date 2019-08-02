@@ -61,7 +61,7 @@ def train_model(net,task,neps,ntrials,seqlen,switchmaps):
     loss.backward(retain_graph=True)
     optiop.step()
     if trial_acc>=.99:
-      task.randomize_emat()
+      task.sample_emat()
   return acc
 
 def eval_model(net,task,neps,ntrials,seqlen,switchmaps):
@@ -71,7 +71,7 @@ def eval_model(net,task,neps,ntrials,seqlen,switchmaps):
   """
   score = -np.ones((neps,ntrials*(seqlen+task.ntokens)))
   for ep in range(neps):
-    task.randomize_emat()
+    task.sample_emat()
     tseq,xseq,ytarget = task.gen_ep_data(ntrials,seqlen,switchmaps)
     yhat_ulog = net(tseq,xseq)
     score[ep] = (maxsoftmax(yhat_ulog) == ytarget).squeeze()
