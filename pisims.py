@@ -25,14 +25,15 @@ task = PurePM(
         stimdim=sdim,
         seed=seed
 )
+
 net = PINet(
         stimdim=sdim,
         stsize=stsize,
         outdim=ntokens,
-        ninstructs=ntokens+1,
-        EMbool=1,
+        nmaps=ntokens+1,
         seed=seed
 )
+net.EMBool = True
 
 ## funs
 maxsoftmax = lambda ulog: tr.argmax(tr.softmax(ulog,-1),-1)
