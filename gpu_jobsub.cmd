@@ -20,7 +20,7 @@ module load cudnn/cuda-9.1/7.1.2
 
 printf "\n\n PI Network - LSTM+EM \n\n"
 
-srun python -u "/tigress/abeukers/wd/pm/pisims.py" ${seed} ${switch} ${ntokens} ${seqlen} ${ntrials}
+srun python -u "/tigress/abeukers/wd/pm/pisims_many_ntokens.py" ${seed} ${switch} ${ntokens} ${seqlen} ${ntrials}
 
 
 printf "\n\nGPU profiling \n\n"

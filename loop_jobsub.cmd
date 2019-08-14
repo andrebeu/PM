@@ -10,11 +10,11 @@ wd_dir="/tigress/abeukers/wd/pm"
 
 
 declare -a switch_arr=(1 0)
-declare -a ntokens_arr=(3 4 5 6)
-declare -a seqlen_arr=(3 4 5 6 10)
-declare -a ntrials_arr=(2 3 4)
+declare -a ntokens_arr=(6 7 8 10)
+declare -a seqlen_arr=(2 8 15)
+declare -a ntrials_arr=(2 5 10 15)
 
-for seed in {0..20}; do 
+for seed in {0..5}; do 
 	for switch in "${switch_arr[@]}"; do 
     for ntokens in "${ntokens_arr[@]}"; do 
       for seqlen in "${seqlen_arr[@]}"; do 
