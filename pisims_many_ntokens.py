@@ -25,7 +25,7 @@ ntokens = int(sys.argv[3])
 seqlen = int(sys.argv[4])
 ntrials = int(sys.argv[5])
 
-sim_dir = 'model_data/PITask_many_ntokens/'
+sim_dir = 'model_data/PITask_randstim/'
 model_fname = "LSTM_%i-EM_conjcode-ntokens_%i-seqlen_%i-ntrials_%i-switchmaps_%i-seed_%i"%(
                 stsize,ntokens,seqlen,ntrials,switchmaps,seed)
 print(model_fname)
@@ -70,8 +70,8 @@ def train_model(net,task,neps,ntrials,seqlen,switchmaps):
     optiop.zero_grad()
     loss.backward(retain_graph=True)
     optiop.step()
-    if trial_acc>=.99:
-      task.sample_emat()
+    # if trial_acc>=.99:
+    task.sample_emat()
   return acc
 
 def eval_model(net,task,neps,ntrials,seqlen,switchmaps):
@@ -92,7 +92,7 @@ def eval_model(net,task,neps,ntrials,seqlen,switchmaps):
 neps_tr = 100000
 neps_ev = 1000
 
-for s in np.arange(1,4):
+for s in np.arange(1,10):
   # path
   neps = s*neps_tr
   fpath = sim_dir+model_fname+'-tr_%i'%neps
