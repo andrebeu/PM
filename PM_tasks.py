@@ -10,6 +10,69 @@ tr_embed_pm = lambda shape: tr_uniform(0,1,shape)
 tr_noise_pm = tr_embed_og
 tr_noise_og = tr_embed_pm
 
+class TaskPM():
+
+  def __init__(self,num_og_tokens=60,num_back=1,num_pms=3):
+    """ 
+    """
+    self.num_og_tokens=num_og_tokens
+    self.num_back=num_back
+    self.num_pms=num_pms
+    return None
+
+  def gen_ep_data(self,num_trials=1,trial_len=20,add_positive_og_probes=10,pm_probes_per_trial=5):
+    """
+    first implementation instruction phase is trivially pm_stim_idx=pm_action
+    eventually I need someway of remapping pm_maps
+    to remap pm_maps, I'll reshuffle the pm_emat
+    """
+    for trial in range(num_trials):
+      resp_stim_seq,resp_action_seq = self.gen_trial_resp_phase(trial_len,add_positive_og_probes,pm_probes_per_trial)
+      inst_stim_seq,inst_action_seq = self.gen_trial_inst_phase()
+
+  def gen_trial_inst_phase(self):
+    """
+    currently throwing away first two stim
+    stims 2-9 are pm stim
+    """
+    pm_action_flags = np.arange(2,2+self.num_pms)
+    return pm_action_flags,pm_action_flags
+
+  def embed(self):
+    """ 
+    currently throwing away first two stim
+    stims 2-9 are pm stim
+    stims 10+ are og stim
+    """
+    return None
+
+  def gen_trial_resp_phase(self,trial_len=20,add_positive_og_probes=10,pm_probes_per_trial=5):
+    """ 
+    still need to implement instruction phase
+
+    """
+    # sample OG stimulus sequence
+    stim_seq = np.random.randint(10,num_og_tokens,trial_len)
+    # include positive OG trials
+    positive_og_probes = np.random.randint(0,trial_len,add_positive_og_probes)
+    for i in positive_og_probes:
+      stim_seq[i] = stim_seq[i-self.num_back]
+    # analyze stim_seq to produce action_seq
+    action_seq = (stim_seq == np.roll(stim_seq,self.num_back)).astype(int)
+    action_seq[:self.num_back] = 0
+    # include pm trials
+    pm_probe_positions = np.random.randint(0,trial_len,pm_probes_per_trial)
+    for pm_probe_pos in sorted(pm_probe_positions):
+      # action
+      pm_action = np.random.choice(range(2,2+self.num_pms))
+      action_seq[pm_probe_pos] = pm_action
+      if pm_probe_pos+self.num_back<trial_len:
+        action_seq[pm_probe_pos+self.num_back] = 0
+      # stim
+      pm_stim_idx = pm_action
+      stim_seq[pm_probe_pos] = pm_stim_idx
+    return stim_seq,action_seq
+
 
 class PurePM():
   """ proactive interference / arbitrary binding task

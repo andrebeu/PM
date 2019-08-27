@@ -10,6 +10,14 @@ assumes first input is the PM cue
 
 tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
 
+class NetPM(tr.nn.Module):
+  def __init__(self):
+    super().__init__()
+    return None
+  def forward(self):
+    return None
+
+
 class PINet(tr.nn.Module):
 
   def __init__(self,stimdim,stsize,outdim,nmaps,EMbool=True,seed=132):
@@ -44,12 +52,6 @@ class PINet(tr.nn.Module):
     # self.ff_em2cell = tr.nn.Linear(self.stsize,self.stsize)
     return None
 
-  # def shuffle_semat(self,mode='permute'):
-  #   if remap_mode == 'permute':
-  #     self.stim_emat = self.stim_emat[np.random.permutation(np.arange(self.nmaps))]
-  #   elif remap_mode == 'roll':
-  #     self.stim_emat = self.stim_emat[np.roll(np.arange(self.nmaps),1)]
-  #   return None
 
   def forward(self,iseq,xseq):
     """

@@ -96,7 +96,7 @@ for s in np.arange(1,10):
   # path
   neps = s*neps_tr
   fpath = sim_dir+model_fname+'-tr_%i'%neps
-  print(fpath)
+  print('training:\n',fpath)
   # train and eval
   tr_acc = train_model(net,task,neps_tr,ntrials,seqlen,switchmaps)
   ev_score = eval_model(net,task,neps_ev,ntrials,seqlen,switchmaps)
