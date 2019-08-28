@@ -2,76 +2,116 @@ import torch as tr
 import numpy as np
 
 
-tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
-tr_randn = lambda shape: tr.randn(*shape)
+""" full dual PM+Nback task
+multi-trial implementation where PM maps shift between trials
+currently not manipulating focality
+"""
 
-tr_embed_og = lambda shape: tr_uniform(-1,0,shape)
-tr_embed_pm = lambda shape: tr_uniform(0,1,shape)
-tr_noise_pm = tr_embed_og
-tr_noise_og = tr_embed_pm
 
-class TaskPM():
+class TaskDualPM():
+  """ 
 
-  def __init__(self,num_og_tokens=60,num_back=1,num_pms=3):
+  """
+
+  def __init__(self,num_back=1,num_pm_maps=2,seed=0,num_stim_tokens=60):
     """ 
     """
-    self.num_og_tokens=num_og_tokens
+    np.random.seed(seed)
     self.num_back=num_back
-    self.num_pms=num_pms
+    self.num_pm_maps=num_pm_maps
+    self.num_stim_tokens = num_stim_tokens  # pm and og 
+    self.sdim = 10
+    self.randomize_emat() # initialize emat
     return None
 
-  def gen_ep_data(self,num_trials=1,trial_len=20,add_positive_og_probes=10,pm_probes_per_trial=5):
+  def randomize_emat(self):
+    self.emat = np.random.uniform(0,1,[self.num_stim_tokens,self.sdim])
+    return None
+
+  def shuffle_pms(self):
+    np.random.shuffle(self.emat[:10])
+    return None
+
+  def gen_ep_data(self,num_trials=1,trial_len=20,pos_og_bias=10,pm_probes_per_trial=5,pm_probe_positions_=None):
     """
-    first implementation instruction phase is trivially pm_stim_idx=pm_action
-    eventually I need someway of remapping pm_maps
-    to remap pm_maps, I'll reshuffle the pm_emat
+    instruction phase is trivially pm_stim_idx=pm_action
+      to change pm_maps, shuffle position of pm_emat 
+    output compatible with expected net input
+
     """
+    # initialize returnables
+    ep_len = num_trials*(trial_len+self.num_pm_maps)
+    inst_seq = -np.ones([ep_len])
+    stim_seq = -np.ones([ep_len,self.sdim])
+    action_seq = -np.ones([ep_len])
+
+    # loop over trails
     for trial in range(num_trials):
-      resp_stim_seq,resp_action_seq = self.gen_trial_resp_phase(trial_len,add_positive_og_probes,pm_probes_per_trial)
-      inst_stim_seq,inst_action_seq = self.gen_trial_inst_phase()
+      ## randomize emats
+      self.shuffle_pms()
+      # generate trial idx_seq
+      inst_stim_seq_int,inst_action_seq_int = self.gen_trial_inst_phase()
+      resp_stim_seq_int,resp_action_seq_int = self.gen_trial_resp_phase(
+        trial_len,pos_og_bias,pm_probes_per_trial,pm_probe_positions_)
+      # embed stim idx_seq
+      inst_stim_seq = self.emat[inst_stim_seq_int]
+      resp_stim_seq = self.emat[resp_stim_seq_int]
+      # collect
+      t0 = trial*(trial_len+self.num_pm_maps)
+      t1 = t0+trial_len+self.num_pm_maps
+      inst_seq[t0:t1] = np.concatenate([inst_stim_seq_int,np.zeros(trial_len)],axis=0)
+      stim_seq[t0:t1] = np.concatenate([inst_stim_seq,resp_stim_seq],axis=0)
+      action_seq[t0:t1] = np.concatenate([inst_action_seq_int,resp_action_seq_int],axis=0)
+    inst_seq = tr.LongTensor(inst_seq).unsqueeze(1) # batch dim
+    stim_seq = tr.Tensor(stim_seq).unsqueeze(1) 
+    action_seq = tr.LongTensor(action_seq).unsqueeze(1) 
+    return inst_seq,stim_seq,action_seq
+      
 
   def gen_trial_inst_phase(self):
     """
-    currently throwing away first two stim
-    stims 2-9 are pm stim
+    instruction phase is trivially generated as pm_stim_idx=pm_action
+    currently throwing away first two stim (b/c 0,1 are OG response actions)
     """
-    pm_action_flags = np.arange(2,2+self.num_pms)
+    pm_action_flags = np.arange(2,2+self.num_pm_maps)
     return pm_action_flags,pm_action_flags
 
-  def embed(self):
+  def gen_trial_resp_phase(self,trial_len=20,pos_og_bias=10,pm_probes_per_trial=5,pm_probe_positions_=None):
     """ 
-    currently throwing away first two stim
-    stims 2-9 are pm stim
-    stims 10+ are og stim
-    """
-    return None
-
-  def gen_trial_resp_phase(self,trial_len=20,add_positive_og_probes=10,pm_probes_per_trial=5):
-    """ 
-    still need to implement instruction phase
-
+    params:
+      `pos_og_bias`: number of positive OG probes
+        sets baseline positive rate, which influences chance level
+      `pm_probes_per_trial`: number of probes that are pm_stim
+    retruns: 1D stim, 1D action, np arr, len=trial_len
     """
     # sample OG stimulus sequence
-    stim_seq = np.random.randint(10,num_og_tokens,trial_len)
+    stim_seq = np.random.randint(10,self.num_stim_tokens-10,trial_len)
     # include positive OG trials
-    positive_og_probes = np.random.randint(0,trial_len,add_positive_og_probes)
+    positive_og_probes = np.random.randint(0,trial_len,pos_og_bias)
     for i in positive_og_probes:
       stim_seq[i] = stim_seq[i-self.num_back]
     # analyze stim_seq to produce action_seq
     action_seq = (stim_seq == np.roll(stim_seq,self.num_back)).astype(int)
     action_seq[:self.num_back] = 0
     # include pm trials
-    pm_probe_positions = np.random.randint(0,trial_len,pm_probes_per_trial)
+    if type(pm_probe_positions_)==type(None):
+      pm_probe_positions = np.random.randint(0,trial_len,pm_probes_per_trial)
+    else:
+      pm_probe_positions = pm_probe_positions_
     for pm_probe_pos in sorted(pm_probe_positions):
       # action
-      pm_action = np.random.choice(range(2,2+self.num_pms))
+      pm_action = np.random.choice(range(2,2+self.num_pm_maps))
       action_seq[pm_probe_pos] = pm_action
+      # enforce negative og response on future probe
       if pm_probe_pos+self.num_back<trial_len:
         action_seq[pm_probe_pos+self.num_back] = 0
       # stim
       pm_stim_idx = pm_action
       stim_seq[pm_probe_pos] = pm_stim_idx
     return stim_seq,action_seq
+
+
+
 
 
 class PurePM():
@@ -259,6 +299,13 @@ class PMTask_PI():
     return tseq,xseq_embed,yseq
 
 
+tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
+tr_randn = lambda shape: tr.randn(*shape)
+
+tr_embed_og = lambda shape: tr_uniform(-1,0,shape)
+tr_embed_pm = lambda shape: tr_uniform(0,1,shape)
+tr_noise_pm = tr_embed_og
+tr_noise_og = tr_embed_pm
 
 class PMTask_Focality():
   def __init__(self,nback,num_pm_trials,

@@ -10,12 +10,52 @@ assumes first input is the PM cue
 
 tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
 
-class NetPM(tr.nn.Module):
-  def __init__(self):
+class NetDualPM(tr.nn.Module):
+
+  def __init__(self,stsize=25,seed=0,embool=False):
     super().__init__()
+    tr.manual_seed(seed)
+    # params
+    self.nmaps = 10
+    # net dims
+    self.instdim = 10
+    self.stimdim = 10
+    self.stsize = stsize
+    self.outdim = 10 # 2 OG units, 8 PM units
+    # instruction in pathway
+    self.embed_instruct = tr.nn.Embedding(self.nmaps+1,self.instdim)
+    self.i2inst = tr.nn.Linear(self.instdim,self.instdim,bias=True) 
+    # stimulus in pathway
+    self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=True)
+    # main LSTM
+    self.lstm_main = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
+    self.init_st_main = tr.rand(2,1,self.stsize,requires_grad=True)
+    # output layers
+    self.cell2outhid = tr.nn.Linear(self.stsize,self.stsize,bias=True)
+    self.ff_hid2ulog = tr.nn.Linear(self.stsize,self.outdim,bias=True)
+    # EM setting
+    self.EMbool = embool
     return None
-  def forward(self):
-    return None
+
+  def forward(self,iseq,sseq):
+    """ """
+    ep_len = len(iseq)
+    # inst in path
+    inst_seq = self.embed_instruct(iseq)
+    inst_seq = self.i2inst(inst_seq).relu()
+    # stim in path 
+    stim_seq = self.ff_stim(sseq).relu()
+    # LSTM unroll
+    cell_outputs = -tr.ones(ep_len,1,self.stsize)
+    self.h_main,self.c_main = self.init_st_main 
+    for tstep in range(ep_len):
+      lstm_main_in = tr.cat([inst_seq[tstep],stim_seq[tstep]],-1)
+      self.h_main,self.c_main = self.lstm_main(lstm_main_in,(self.h_main,self.c_main))
+      cell_outputs[tstep] = self.h_main
+    ## output path
+    cell_outputs = self.cell2outhid(cell_outputs).relu()
+    yhat_ulog = self.ff_hid2ulog(cell_outputs)
+    return yhat_ulog
 
 
 class PINet(tr.nn.Module):
