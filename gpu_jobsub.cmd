@@ -10,17 +10,15 @@
 #SBATCH --gres=gpu:0		# number of gpus 4
 
 seed=${1}
-switch=${2} 
-ntokens=${3}
-seqlen=${4}
-ntrials=${5}
+nback=${2} 
+nmaps=${3}
 
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2
 
-printf "\n\n PI Network - LSTM+EM \n\n"
+printf "\n\n complex maps task \n\n"
 
-srun python -u "/tigress/abeukers/wd/pm/pisims_many_ntokens.py" ${seed} ${switch} ${ntokens} ${seqlen} ${ntrials}
+srun python -u "/tigress/abeukers/wd/pm/exp-complex_maps2.py" ${seed} ${nback} ${nmaps} 
 
 
 printf "\n\nGPU profiling \n\n"

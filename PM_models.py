@@ -7,12 +7,11 @@ from sklearn.metrics import pairwise_distances
 """
 assumes first input is the PM cue
 """
-
 tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
 
 class NetDualPM(tr.nn.Module):
 
-  def __init__(self,stsize=25,seed=0,embool=False):
+  def __init__(self,stsize=25,emsetting=1,seed=0):
     super().__init__()
     tr.manual_seed(seed)
     # params
@@ -21,6 +20,7 @@ class NetDualPM(tr.nn.Module):
     self.instdim = 10
     self.stimdim = 10
     self.stsize = stsize
+    self.emdim = stsize
     self.outdim = 10 # 2 OG units, 8 PM units
     # instruction in pathway
     self.embed_instruct = tr.nn.Embedding(self.nmaps+1,self.instdim)
@@ -29,32 +29,65 @@ class NetDualPM(tr.nn.Module):
     self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=True)
     # main LSTM
     self.lstm_main = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
-    self.init_st_main = tr.rand(2,1,self.stsize,requires_grad=True)
+    # self.init_st_main = tr.rand(2,1,self.stsize,requires_grad=True)
+    self.init_st_main = tr.nn.Parameter(tr.rand(2,1,self.stsize),requires_grad=True)
     # output layers
-    self.cell2outhid = tr.nn.Linear(self.stsize,self.stsize,bias=True)
+    self.cell2outhid = tr.nn.Linear(self.stsize+self.emdim,self.stsize,bias=True)
     self.ff_hid2ulog = tr.nn.Linear(self.stsize,self.outdim,bias=True)
-    # EM setting
-    self.EMbool = embool
+    # EM setting {0:no_em,1:em_nogate,2:em_gate}
+    self.EMsetting = emsetting
     return None
 
-  def forward(self,iseq,sseq):
+  def forward(self,iseq,sseq,store_states=False):
     """ """
     ep_len = len(iseq)
+    self.rgate_actL = []
     # inst in path
     inst_seq = self.embed_instruct(iseq)
     inst_seq = self.i2inst(inst_seq).relu()
     # stim in path 
     stim_seq = self.ff_stim(sseq).relu()
+    # init EM
+    self.EM_key,self.EM_value = [],[]
+    # save lstm states
+    cstateL,hstateL = [],[]
     # LSTM unroll
-    cell_outputs = -tr.ones(ep_len,1,self.stsize)
-    self.h_main,self.c_main = self.init_st_main 
+    cell_outputs = -tr.ones(ep_len,1,self.stsize+self.emdim)
+    h_main,c_main = self.init_st_main 
     for tstep in range(ep_len):
+      # forward prop LSTM
       lstm_main_in = tr.cat([inst_seq[tstep],stim_seq[tstep]],-1)
-      self.h_main,self.c_main = self.lstm_main(lstm_main_in,(self.h_main,self.c_main))
-      cell_outputs[tstep] = self.h_main
+      h_main,c_main = self.lstm_main(lstm_main_in,(h_main,c_main))
+      # save lstm states
+      if store_states:
+        cstateL.append(c_main.detach().numpy().squeeze())
+        hstateL.append(h_main.detach().numpy().squeeze())
+      if (self.EMsetting==1): 
+        # form memory key
+        emk = np.concatenate([
+                # stim_seq[tstep].detach().numpy(),
+                h_main.detach().numpy()
+                ],-1)
+        if (iseq[tstep]==0): 
+          # print('retrieve')
+          emquery = emk
+          EM_K = np.concatenate(self.EM_key)
+          qksim = -pairwise_distances(emquery,EM_K,metric='cosine').round(2).squeeze()
+          retrieve_index = qksim.argmax()
+          h_memory = tr.Tensor(self.EM_value[retrieve_index])
+        else:
+          # print('encode')
+          self.EM_value.append(h_main.detach().numpy())
+          self.EM_key.append(emk)
+          h_memory = tr.zeros_like(h_main)
+      else: 
+        h_memory = tr.zeros_like(h_main)
+      cell_outputs[tstep] = tr.cat([h_main,h_memory],-1)
     ## output path
     cell_outputs = self.cell2outhid(cell_outputs).relu()
     yhat_ulog = self.ff_hid2ulog(cell_outputs)
+    # save lstm states
+    self.cstates,self.hstates = np.array(cstateL),np.array(hstateL)
     return yhat_ulog
 
 
@@ -148,6 +181,8 @@ class PINet(tr.nn.Module):
     ## output layer
     cell_outputs = self.cell2outhid(cell_outputs).relu()
     yhat_ulog = self.ff_hid2ulog(cell_outputs)
+    ## storing states
+    self.cstates,self.hstates = np.array(self.cstateL),np.array(self.hstateL)
     return yhat_ulog
 
 

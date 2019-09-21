@@ -5,6 +5,9 @@ import numpy as np
 """ full dual PM+Nback task
 multi-trial implementation where PM maps shift between trials
 currently not manipulating focality
+
+probability of positive probes is controlled by (i) number of tokens
+(ii) a bias term that switches a couple of probes 
 """
 
 
@@ -13,12 +16,12 @@ class TaskDualPM():
 
   """
 
-  def __init__(self,num_back=1,num_pm_maps=2,seed=0,num_stim_tokens=60):
+  def __init__(self,num_back,pm_maps,seed=0,num_stim_tokens=60):
     """ 
     """
     np.random.seed(seed)
     self.num_back=num_back
-    self.num_pm_maps=num_pm_maps
+    self.pm_maps=pm_maps
     self.num_stim_tokens = num_stim_tokens  # pm and og 
     self.sdim = 10
     self.randomize_emat() # initialize emat
@@ -29,18 +32,21 @@ class TaskDualPM():
     return None
 
   def shuffle_pms(self):
-    np.random.shuffle(self.emat[:10])
+    num_pm_stim = 3 # max is 10
+    np.random.shuffle(self.emat[2:2+num_pm_stim])
     return None
 
-  def gen_ep_data(self,num_trials=1,trial_len=20,pos_og_bias=10,pm_probes_per_trial=5,pm_probe_positions_=None):
+  def gen_ep_data(self,num_trials=1,trial_len=20,pm_probe_positions=None):
     """
     instruction phase is trivially pm_stim_idx=pm_action
       to change pm_maps, shuffle position of pm_emat 
     output compatible with expected net input
 
     """
+    # insert extra positive trials than expected by chance
+    pos_og_bias=np.random.randint(1,100,1)
     # initialize returnables
-    ep_len = num_trials*(trial_len+self.num_pm_maps)
+    ep_len = num_trials*(trial_len+self.pm_maps)
     inst_seq = -np.ones([ep_len])
     stim_seq = -np.ones([ep_len,self.sdim])
     action_seq = -np.ones([ep_len])
@@ -52,13 +58,13 @@ class TaskDualPM():
       # generate trial idx_seq
       inst_stim_seq_int,inst_action_seq_int = self.gen_trial_inst_phase()
       resp_stim_seq_int,resp_action_seq_int = self.gen_trial_resp_phase(
-        trial_len,pos_og_bias,pm_probes_per_trial,pm_probe_positions_)
+        trial_len,pos_og_bias,pm_probe_positions)
       # embed stim idx_seq
       inst_stim_seq = self.emat[inst_stim_seq_int]
       resp_stim_seq = self.emat[resp_stim_seq_int]
       # collect
-      t0 = trial*(trial_len+self.num_pm_maps)
-      t1 = t0+trial_len+self.num_pm_maps
+      t0 = trial*(trial_len+self.pm_maps)
+      t1 = t0+trial_len+self.pm_maps
       inst_seq[t0:t1] = np.concatenate([inst_stim_seq_int,np.zeros(trial_len)],axis=0)
       stim_seq[t0:t1] = np.concatenate([inst_stim_seq,resp_stim_seq],axis=0)
       action_seq[t0:t1] = np.concatenate([inst_action_seq_int,resp_action_seq_int],axis=0)
@@ -67,23 +73,23 @@ class TaskDualPM():
     action_seq = tr.LongTensor(action_seq).unsqueeze(1) 
     return inst_seq,stim_seq,action_seq
       
-
   def gen_trial_inst_phase(self):
     """
     instruction phase is trivially generated as pm_stim_idx=pm_action
     currently throwing away first two stim (b/c 0,1 are OG response actions)
     """
-    pm_action_flags = np.arange(2,2+self.num_pm_maps)
+    pm_action_flags = np.arange(2,2+self.pm_maps)
     return pm_action_flags,pm_action_flags
 
-  def gen_trial_resp_phase(self,trial_len=20,pos_og_bias=10,pm_probes_per_trial=5,pm_probe_positions_=None):
+  def gen_trial_resp_phase(self,trial_len=20,pos_og_bias=10,pm_probe_positions=None):
     """ 
     params:
       `pos_og_bias`: number of positive OG probes
         sets baseline positive rate, which influences chance level
-      `pm_probes_per_trial`: number of probes that are pm_stim
+      `pm_probe_positions`: list with index positions of pm stimuli probes
     retruns: 1D stim, 1D action, np arr, len=trial_len
     """
+    ## OG task probes
     # sample OG stimulus sequence
     stim_seq = np.random.randint(10,self.num_stim_tokens-10,trial_len)
     # include positive OG trials
@@ -93,14 +99,13 @@ class TaskDualPM():
     # analyze stim_seq to produce action_seq
     action_seq = (stim_seq == np.roll(stim_seq,self.num_back)).astype(int)
     action_seq[:self.num_back] = 0
-    # include pm trials
-    if type(pm_probe_positions_)==type(None):
-      pm_probe_positions = np.random.randint(0,trial_len,pm_probes_per_trial)
-    else:
-      pm_probe_positions = pm_probe_positions_
+    ## PM task probes
+    if type(pm_probe_positions)==type(None):
+      # if trial position of pm probes not specified, randomly sample a couple
+      pm_probe_positions = np.random.randint(0,trial_len,np.random.randint(0,10,1))
     for pm_probe_pos in sorted(pm_probe_positions):
       # action
-      pm_action = np.random.choice(range(2,2+self.num_pm_maps))
+      pm_action = np.random.choice(range(2,2+self.pm_maps))
       action_seq[pm_probe_pos] = pm_action
       # enforce negative og response on future probe
       if pm_probe_pos+self.num_back<trial_len:
@@ -109,9 +114,6 @@ class TaskDualPM():
       pm_stim_idx = pm_action
       stim_seq[pm_probe_pos] = pm_stim_idx
     return stim_seq,action_seq
-
-
-
 
 
 class PurePM():
@@ -130,7 +132,7 @@ class PurePM():
     self.emat = tr.Tensor(self.emat)
     return None
 
-  def resort_emat(self,resort_mode='permute'):
+  def resort_emat(self,resort_mode='roll'):
     if resort_mode == 'permute':
       self.emat = self.emat[np.random.permutation(np.arange(self.ntokens))]
     elif resort_mode == 'roll':
@@ -174,7 +176,6 @@ class PurePM():
     yseq = tr.unsqueeze(tr.LongTensor(stim_seq_int_2d.reshape(-1)),1)
     stim_seq = tr.stack(stim_seq,0).unsqueeze(1)
     return instruct_seq,stim_seq,yseq
-
 
 
 class PMTask_PI():
