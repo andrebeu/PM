@@ -63,7 +63,7 @@ def eval_net2(net,task,neps=500,num_trials=10,trial_len=10,return_states=False):
   else:
     return ev_acc,states
 
-def eval_net(net,task,neps=500,gen_data_fn=None,return_states=False):
+def eval_net(net,task=None,neps=500,gen_data_fn=None,return_states=False):
   if type(gen_data_fn)==type(None):
     gen_data_fn = lambda : task.gen_ep_data(
                     num_trials=4,

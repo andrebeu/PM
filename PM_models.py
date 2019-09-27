@@ -7,9 +7,116 @@ from sklearn.metrics import pairwise_distances
 """
 assumes first input is the PM cue
 """
+
 tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
 
+class NetHlstmEM(tr.nn.Module):
+  """ 
+  EM injected into LSTM cell state
+  """
+
+  def __init__(self,stsize=25,emsetting=1,seed=0):
+    super().__init__()
+    tr.manual_seed(seed)
+    # params
+    self.nmaps = 10
+    # net dims
+    self.instdim = 10
+    self.stimdim = 10
+    self.stsize = stsize
+    self.stsize_em = 10
+    self.outdim = 10 # 2 OG units, 8 PM units
+    # instruction in pathway
+    self.embed_instruct = tr.nn.Embedding(self.nmaps+1,self.instdim)
+    self.i2inst = tr.nn.Linear(self.instdim,self.instdim,bias=True) 
+    # stimulus in pathway
+    self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=True)
+    # main LSTM
+    self.lstm1 = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
+    self.lstm2 = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
+    self.init_lstm1 = tr.nn.Parameter(tr.rand(2,1,self.stsize),requires_grad=True)
+    self.init_lstm2 = tr.nn.Parameter(tr.rand(2,1,self.stsize),requires_grad=True)
+    # EM LSTM
+    self.lstm_em = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
+    self.init_lstm_em = tr.nn.Parameter(tr.rand(2,1,self.stsize),requires_grad=True)
+    # output layers
+    self.cell2outhid = tr.nn.Linear(self.stsize,self.stsize,bias=True)
+    self.ff_hid2ulog = tr.nn.Linear(self.stsize,self.outdim,bias=True)
+    # EM setting 
+    self.EMsetting = emsetting
+    self.WMsetting = 1
+    return None
+
+  def forward(self,iseq,sseq,store_states=False):
+    """ """
+    ep_len = len(iseq)
+    # inst in path
+    inst_seq = self.embed_instruct(iseq)
+    inst_seq = self.i2inst(inst_seq).relu()
+    # stim in path 
+    stim_seq = self.ff_stim(sseq).relu()
+    # init EM
+    self.EM_key,self.EM_value = [],[]
+    # save lstm states
+    cstateL,hstateL = [],[]
+    # collect outputs
+    WM_outputs = -tr.ones(ep_len,1,self.stsize+self.emdim)
+    # LSTM unroll
+    h_lstm1,c_lstm1 = self.init_lstm1
+    h_lstm2,c_lstm2 = self.init_lstm2 
+    h_em,c_em = self.init_lstm_em
+    for tstep in range(ep_len):
+      ## LSTM 1
+      lstm1_in = tr.cat([inst_seq[tstep],stim_seq[tstep]],-1)
+      h_lstm1,c_lstm1 = self.lstm1(lstm1_in,(h_lstm1,c_lstm1))
+      ## LSTM EM
+      lstm_em_in = tr.cat([inst_seq[tstep],stim_seq[tstep]],-1)
+      h_em,c_em = self.lstm_em(lstm_em_in,(h_em,c_em))
+      ## EM retrieval and encoding
+      if (self.EMsetting>0): 
+        # em key
+        emk = emv = h_lstm1
+        if (iseq[tstep]==0): 
+          # print('retrieve')
+          em_output = self.retrieve(emk)
+        else:
+          # print('encode')
+          self.encode(emk,emv)
+          em_output = tr.zeros_like(h_lstm1)
+      else: 
+        em_output = tr.zeros_like(h_lstm1)
+      ## LSTM 2
+      lstm2_in = h_lstm1 + em_output
+      h_lstm2,c_lstm2 = self.lstm2(lstm2_in,(h_lstm2,c_lstm2))
+      ## output layer
+      WM_outputs[tstep] = h_lstm2
+    ## output path
+    WM_outputs = self.cell2outhid(WM_outputs).relu()
+    yhat_ulog = self.ff_hid2ulog(WM_outputs)
+    # save lstm states
+    self.cstates,self.hstates = np.array(cstateL),np.array(hstateL)
+    return yhat_ulog
+
+  def retrieve(self,emquery):
+    emquery = emquery.detach().numpy()
+    EM_K = np.concatenate(self.EM_key)
+    qksim = -pairwise_distances(emquery,EM_K,metric='cosine').round(2).squeeze()
+    retrieve_index = qksim.argmax()
+    h_memory = tr.Tensor(self.EM_value[retrieve_index])
+    return em_output
+
+  def encode(self,emk,emv):
+    emk = emk.detach().numpy()
+    emv = emv.detach().numpy()
+    self.EM_key.append(emk)
+    self.EM_value.append(emv)
+    return None
+
+
+
 class NetDualPM(tr.nn.Module):
+  """ EM and WM have separate pathways
+  """
 
   def __init__(self,stsize=25,emsetting=1,seed=0):
     super().__init__()
@@ -36,6 +143,7 @@ class NetDualPM(tr.nn.Module):
     self.ff_hid2ulog = tr.nn.Linear(self.stsize,self.outdim,bias=True)
     # EM setting {0:no_em,1:em_nogate,2:em_gate}
     self.EMsetting = emsetting
+    self.WMsetting = 1
     return None
 
   def forward(self,iseq,sseq,store_states=False):
@@ -82,6 +190,8 @@ class NetDualPM(tr.nn.Module):
           h_memory = tr.zeros_like(h_main)
       else: 
         h_memory = tr.zeros_like(h_main)
+      if self.WMsetting == False:
+        h_main = tr.zeros_like(h_main)
       cell_outputs[tstep] = tr.cat([h_main,h_memory],-1)
     ## output path
     cell_outputs = self.cell2outhid(cell_outputs).relu()
