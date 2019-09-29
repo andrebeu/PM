@@ -19,7 +19,7 @@ module load cudnn/cuda-9.1/7.1.2
 
 printf "\n\n complex maps task \n\n"
 
-srun python -u "/tigress/abeukers/wd/pm/exp-dual_lstms-sweep1.py" ${seed} ${ntrials} 
+srun python -u "/tigress/abeukers/wd/pm/exp-dual_lstms-sweep1.py" ${seed} ${ntrials} ${stsize1} ${stsize2}
 
 
 printf "\n\nGPU profiling \n\n"
