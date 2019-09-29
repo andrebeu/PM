@@ -10,8 +10,79 @@ assumes first input is the PM cue
 
 tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
 
+class NetDualLSTMToy(tr.nn.Module):
+  """ 
+  two LSTMS 
+    one processes instruction phase to compute an EM embedding
+    another takes EM embedding and test phase stim to respond
+  """
+
+  def __init__(self,stsize1=20,stsize2=35,seed=0):
+    super().__init__()
+    tr.manual_seed(seed)
+    # params
+    self.nmaps = 10
+    # net dims
+    self.instdim = 10
+    self.stimdim = 10
+    self.stsize_lstm1 = stsize1
+    self.stsize_lstm2 = stsize2
+    self.outdim = 10 # 2 OG units, 8 PM units
+    # instruction in pathway
+    self.embed_instruct = tr.nn.Embedding(self.nmaps+2,self.instdim)
+    self.i2inst = tr.nn.Linear(self.instdim,self.instdim,bias=True) 
+    # stimulus in pathway
+    self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=True)
+    # main LSTM
+    self.lstm1 = tr.nn.LSTMCell(self.instdim+self.stimdim,self.stsize_lstm1)
+    self.lstm2 = tr.nn.LSTMCell(self.stimdim+self.stsize_lstm1,self.stsize_lstm2)
+    self.init_lstm1 = tr.nn.Parameter(tr.rand(2,1,self.stsize_lstm1),requires_grad=True)
+    self.init_lstm2 = tr.nn.Parameter(tr.rand(2,1,self.stsize_lstm2),requires_grad=True)
+    # output layers
+    self.cell2outhid = tr.nn.Linear(self.stsize_lstm2,self.stsize_lstm2,bias=True)
+    self.ff_hid2ulog = tr.nn.Linear(self.stsize_lstm2,self.outdim,bias=True)
+    return None
+
+  def forward(self,iseq,sseq,store_states=False):
+    """ """
+    ep_len = len(iseq)
+    # input layer inst in path
+    inst_seq = self.embed_instruct(iseq)
+    inst_seq = self.i2inst(inst_seq).relu() 
+    stim_seq = self.ff_stim(sseq).relu()
+    # init EM
+    self.EM_key,self.EM_value = [],[]
+    # save lstm states
+    cstateL,hstateL = [],[]
+    # collect outputs
+    WM_outputs = []
+    # LSTM unroll
+    h_lstm1,c_lstm1 = self.init_lstm1
+    h_lstm2,c_lstm2 = self.init_lstm2 
+    for tstep in range(ep_len):
+      lstm1_in = tr.cat([inst_seq[tstep],stim_seq[tstep]],-1)
+      h_lstm1,c_lstm1 = self.lstm1(lstm1_in,(h_lstm1,c_lstm1))
+      ## learn phase
+      if (iseq[tstep]!=0):
+        context_em = h_lstm1
+      ## test phase
+      else:
+        em_embed = context_em
+        lstm2_in = tr.cat([em_embed,stim_seq[tstep]],-1)
+        h_lstm2,c_lstm2 = self.lstm2(lstm2_in,(h_lstm2,c_lstm2))
+        WM_outputs.append(h_lstm2)
+    ## output path
+    WM_outputs = tr.stack(WM_outputs)
+    WM_outputs = self.cell2outhid(WM_outputs).relu()
+    yhat_ulog = self.ff_hid2ulog(WM_outputs)
+    # save lstm states
+    # self.cstates,self.hstates = np.array(cstateL),np.array(hstateL)
+    return yhat_ulog
+
+
 class NetHlstmEM(tr.nn.Module):
   """ 
+  hierarchical lstm
   EM injected into LSTM cell state
   """
 
@@ -33,7 +104,7 @@ class NetHlstmEM(tr.nn.Module):
     self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=True)
     # main LSTM
     self.lstm1 = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
-    self.lstm2 = tr.nn.LSTMCell(self.stimdim+self.instdim,self.stsize)
+    self.lstm2 = tr.nn.LSTMCell(self.stsize,self.stsize)
     self.init_lstm1 = tr.nn.Parameter(tr.rand(2,1,self.stsize),requires_grad=True)
     self.init_lstm2 = tr.nn.Parameter(tr.rand(2,1,self.stsize),requires_grad=True)
     # EM LSTM
@@ -111,7 +182,6 @@ class NetHlstmEM(tr.nn.Module):
     self.EM_key.append(emk)
     self.EM_value.append(emv)
     return None
-
 
 
 class NetDualPM(tr.nn.Module):

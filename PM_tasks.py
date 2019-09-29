@@ -16,12 +16,12 @@ class TaskDualPM():
 
   """
 
-  def __init__(self,num_back,pm_maps,seed=0,num_stim_tokens=60):
+  def __init__(self,num_back,nmaps,seed=0,num_stim_tokens=60):
     """ 
     """
     np.random.seed(seed)
     self.num_back=num_back
-    self.pm_maps=pm_maps
+    self.nmaps=nmaps
     self.num_stim_tokens = num_stim_tokens  # pm and og 
     self.sdim = 10
     self.randomize_emat() # initialize emat
@@ -32,21 +32,20 @@ class TaskDualPM():
     return None
 
   def shuffle_pms(self):
-    num_pm_stim = 3 # max is 10
-    np.random.shuffle(self.emat[2:2+num_pm_stim])
+    np.random.shuffle(self.emat[2:2+self.nmaps])
     return None
 
   def gen_ep_data(self,num_trials=1,trial_len=20,pm_probe_positions=None):
     """
     instruction phase is trivially pm_stim_idx=pm_action
-      to change pm_maps, shuffle position of pm_emat 
+      to change nmaps, shuffle position of pm_emat 
     output compatible with expected net input
 
     """
     # insert extra positive trials than expected by chance
     pos_og_bias=np.random.randint(1,100,1)
     # initialize returnables
-    ep_len = num_trials*(trial_len+self.pm_maps)
+    ep_len = num_trials*(trial_len+self.nmaps)
     inst_seq = -np.ones([ep_len])
     stim_seq = -np.ones([ep_len,self.sdim])
     action_seq = -np.ones([ep_len])
@@ -63,8 +62,8 @@ class TaskDualPM():
       inst_stim_seq = self.emat[inst_stim_seq_int]
       resp_stim_seq = self.emat[resp_stim_seq_int]
       # collect
-      t0 = trial*(trial_len+self.pm_maps)
-      t1 = t0+trial_len+self.pm_maps
+      t0 = trial*(trial_len+self.nmaps)
+      t1 = t0+trial_len+self.nmaps
       inst_seq[t0:t1] = np.concatenate([inst_stim_seq_int,np.zeros(trial_len)],axis=0)
       stim_seq[t0:t1] = np.concatenate([inst_stim_seq,resp_stim_seq],axis=0)
       action_seq[t0:t1] = np.concatenate([inst_action_seq_int,resp_action_seq_int],axis=0)
@@ -78,7 +77,7 @@ class TaskDualPM():
     instruction phase is trivially generated as pm_stim_idx=pm_action
     currently throwing away first two stim (b/c 0,1 are OG response actions)
     """
-    pm_action_flags = np.arange(2,2+self.pm_maps)
+    pm_action_flags = np.arange(2,2+self.nmaps)
     return pm_action_flags,pm_action_flags
 
   def gen_trial_resp_phase(self,trial_len=20,pos_og_bias=10,pm_probe_positions=None):
@@ -105,7 +104,7 @@ class TaskDualPM():
       pm_probe_positions = np.random.randint(0,trial_len,np.random.randint(0,10,1))
     for pm_probe_pos in sorted(pm_probe_positions):
       # action
-      pm_action = np.random.choice(range(2,2+self.pm_maps))
+      pm_action = np.random.choice(range(2,2+self.nmaps))
       action_seq[pm_probe_pos] = pm_action
       # enforce negative og response on future probe
       if pm_probe_pos+self.num_back<trial_len:
@@ -307,6 +306,7 @@ tr_embed_og = lambda shape: tr_uniform(-1,0,shape)
 tr_embed_pm = lambda shape: tr_uniform(0,1,shape)
 tr_noise_pm = tr_embed_og
 tr_noise_og = tr_embed_pm
+
 
 class PMTask_Focality():
   def __init__(self,nback,num_pm_trials,

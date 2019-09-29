@@ -9,10 +9,16 @@ wd_dir="/tigress/abeukers/wd/pm"
 ##
 
 
-declare -a switch_arr=(1 0)
+declare -a ntrials_arr=(1 2 3)
+declare -a stsize1_arr=(15 20 25)
+declare -a stsize2_arr=(30 40 50)
 
-for seed in {0..99}; do 
-  for switch in "${switch_arr[@]}"; do 
-		sbatch ${wd_dir}/gpu_jobsub.cmd ${seed} ${switch}
+for seed in {0..5}; do 
+  for ntrials in "${ntrials_arr[@]}"; do 
+    for stsize1 in "${stsize1_arr[@]}"; do 
+      for stsize2 in "${stsize2_arr[@]}"; do 
+    		sbatch ${wd_dir}/gpu_jobsub.cmd ${seed} ${ntrials} ${stsize1} ${stsize2}
+      done
+    done
 	done
 done

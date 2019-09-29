@@ -10,14 +10,16 @@
 #SBATCH --gres=gpu:0		# number of gpus 4
 
 seed=${1}
-switch=${2} 
+ntrials=${2}
+stsize1=${3} 
+stsize2=${4} 
 
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2
 
 printf "\n\n complex maps task \n\n"
 
-srun python -u "/tigress/abeukers/wd/pm/exp_pisims_randstim.py" ${seed} ${seed} 
+srun python -u "/tigress/abeukers/wd/pm/exp-dual_lstms-sweep1.py" ${seed} ${ntrials} 
 
 
 printf "\n\nGPU profiling \n\n"

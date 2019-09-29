@@ -9,14 +9,7 @@ from sklearn.metrics import pairwise_distances
 maxsoftmax = lambda ulog: tr.argmax(tr.softmax(ulog,-1),-1)
 
 
-def train_net(net,task,neps,gen_data_fn=None,verb=False):
-  if type(gen_data_fn)==type(None):
-    gen_data_fn = lambda : task.gen_ep_data(
-                    num_trials=1,
-                    trial_len=30,
-                    pos_og_bias=np.random.randint(1,100,1),
-                    pm_probes_per_trial=np.random.randint(0,10,1)
-                    )
+def train_net(net,task,neps,gen_data_fn,verb=False):
   lossop = tr.nn.CrossEntropyLoss()
   optiop = tr.optim.Adam(net.parameters(), lr=0.001)
   acc = -np.ones(neps)
