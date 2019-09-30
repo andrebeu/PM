@@ -13,7 +13,7 @@ declare -a ntrials_arr=(1 2 3)
 declare -a stsize1_arr=(15 20 25)
 declare -a stsize2_arr=(30 40 50)
 
-for seed in {0..5}; do 
+for seed in {0..19}; do 
   for ntrials in "${ntrials_arr[@]}"; do 
     for stsize1 in "${stsize1_arr[@]}"; do 
       for stsize2 in "${stsize2_arr[@]}"; do 
