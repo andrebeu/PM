@@ -16,7 +16,7 @@ class TaskDualPM():
 
   """
 
-  def __init__(self,num_back,nmaps,seed=0,num_stim_tokens=60):
+  def __init__(self,num_back,nmaps,seed=0,num_stim_tokens=50):
     """ 
     """
     np.random.seed(seed)
@@ -30,6 +30,9 @@ class TaskDualPM():
   def randomize_emat(self):
     self.emat = np.random.uniform(0,1,[self.num_stim_tokens,self.sdim])
     return None
+
+  def shuffle_emat(self):
+    np.random.shuffle(self.emat)
 
   def shuffle_pms(self):
     np.random.shuffle(self.emat[2:2+self.nmaps])
@@ -90,6 +93,7 @@ class TaskDualPM():
     """
     ## OG task probes
     # sample OG stimulus sequence
+    ''' use stimuli 10: for OG in dual tasks'''
     stim_seq = np.random.randint(10,self.num_stim_tokens-10,trial_len)
     # include positive OG trials
     positive_og_probes = np.random.randint(0,trial_len,pos_og_bias)

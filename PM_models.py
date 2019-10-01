@@ -17,7 +17,8 @@ class NetDualLSTMToy(tr.nn.Module):
     another takes EM embedding and test phase stim to respond
   """
 
-  def __init__(self,stsize1=20,stsize2=35,seed=0):
+  def __init__(self,stsize1=20,stsize2=35,seed=0,deep_lstm2=True):
+    
     super().__init__()
     tr.manual_seed(seed)
     # params
@@ -36,8 +37,12 @@ class NetDualLSTMToy(tr.nn.Module):
     # main LSTM
     self.lstm1 = tr.nn.LSTMCell(self.instdim+self.stimdim,self.stsize_lstm1)
     self.lstm2 = tr.nn.LSTMCell(self.stimdim+self.stsize_lstm1,self.stsize_lstm2)
+    self.lstm22 = tr.nn.LSTMCell(self.stsize_lstm2,self.stsize_lstm2)
     self.init_lstm1 = tr.nn.Parameter(tr.rand(2,1,self.stsize_lstm1),requires_grad=True)
     self.init_lstm2 = tr.nn.Parameter(tr.rand(2,1,self.stsize_lstm2),requires_grad=True)
+    self.init_lstm22 = tr.nn.Parameter(tr.rand(2,1,self.stsize_lstm2),requires_grad=True)
+    if deep_lstm2: print('two LSTM layers')
+    self.deep_lstm2 = deep_lstm2
     # output layers
     self.cell2outhid = tr.nn.Linear(self.stsize_lstm2,self.stsize_lstm2,bias=True)
     self.ff_hid2ulog = tr.nn.Linear(self.stsize_lstm2,self.outdim,bias=True)
@@ -59,6 +64,7 @@ class NetDualLSTMToy(tr.nn.Module):
     # LSTM unroll
     h_lstm1,c_lstm1 = self.init_lstm1
     h_lstm2,c_lstm2 = self.init_lstm2 
+    h_lstm22,c_lstm22 = self.init_lstm22 
     for tstep in range(ep_len):
       lstm1_in = tr.cat([inst_seq[tstep],stim_seq[tstep]],-1)
       h_lstm1,c_lstm1 = self.lstm1(lstm1_in,(h_lstm1,c_lstm1))
@@ -70,7 +76,11 @@ class NetDualLSTMToy(tr.nn.Module):
         em_embed = context_em
         lstm2_in = tr.cat([em_embed,stim_seq[tstep]],-1)
         h_lstm2,c_lstm2 = self.lstm2(lstm2_in,(h_lstm2,c_lstm2))
-        WM_outputs.append(h_lstm2)
+        h_lstm22,c_lstm22 = self.lstm22(h_lstm2,(h_lstm22,c_lstm22))
+        if self.deep_lstm2:
+          WM_outputs.append(h_lstm22)
+        else:
+          WM_outputs.append(h_lstm2)
     ## output path
     WM_outputs = tr.stack(WM_outputs)
     WM_outputs = self.cell2outhid(WM_outputs).relu()
