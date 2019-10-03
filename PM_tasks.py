@@ -11,6 +11,90 @@ probability of positive probes is controlled by (i) number of tokens
 """
 
 
+class TaskArbitraryMaps():
+  ''' 
+  instruct token 0 using during test phase
+  '''
+  def __init__(self,nmaps,switchmaps=True,ntokens_surplus=0,stimdim=14,seed=0):
+    tr.manual_seed(seed)
+    np.random.seed(seed)
+    self.switchmaps=switchmaps
+    self.nmaps = nmaps
+    self.ntokens = 1+nmaps+ntokens_surplus
+    self.stimdim = stimdim
+    self.sample_emat()
+
+  def sample_emat(self):
+    self.emat = np.random.uniform(0,1,[self.ntokens,self.stimdim])
+    self.emat = tr.Tensor(self.emat)
+
+  def resort_emat(self,resort_mode='random'):
+    if resort_mode == 'random':
+      # self.emat = self.emat[np.random.permutation(np.arange(self.ntokens))]
+      self.emat = np.random.permutation(self.emat)
+
+  def gen_ep_data(self,ntrials,trlen,stationary=True):
+    if not stationary:
+      self.resort_emat()
+
+  def gen_ep_data(self,ntrials,trlen):
+    """ 
+    instruction (i_input)
+    stimulus_token (x_input)
+    stimulus_embedding (s_input)
+
+    encoding (phase), test (phase)
+
+    switchmaps: 
+      stimulus token integers remain the same,
+      but stimulus embedding corresponding to given token changes
+        when resort_emat() is called
+
+    trlen: response_probes_per_trials
+      NB length of given trial will be ntokens+trlen
+    output compatible with model input
+    instruct_seq: [time,1]
+    stim_seq: [time,1,stimdim]
+    yseq: [time,1]
+    """
+    ## instruction
+    # for each trial, generate random instruction encoding sequence
+    i_encoding_input = np.array([
+        np.random.permutation(np.arange(1,self.nmaps+1)) 
+        for i in range(ntrials)
+    ])
+    i_test_input = np.zeros([ntrials,trlen])
+    # full instruction sequence
+    i_input = np.concatenate([
+                  i_encoding_input,i_test_input],
+                1).astype(int).reshape(-1) # (ntrials,trlen+)
+    # print('i_input',i_input.reshape(ntrials,-1))
+    ## stimulus
+    x_encoding_input = i_encoding_input
+    x_test_input = np.random.randint(1,self.nmaps+1,[ntrials,trlen])
+    # print(1,x_test_input)
+    x_encoding_input
+    # print('x_test',x_test_input)
+    x_input = np.concatenate([i_encoding_input,x_test_input],1)
+    # print('x_input',x_input)
+    ''' 
+    embed: x_input [ntrials,nmaps+trlen] -> s_input [ntrials*(nmaps+trlen),edim]
+    explicit loop required for flatten and embedd x_input
+    because if switchmaps=1, matrix is resorted between trials
+    and therefore same stimulus token integers correspond to
+    different stimulus embeddings on different trials
+    '''
+    s_input = -np.ones([ntrials,(self.nmaps+trlen),self.stimdim])
+    for trialn,x_input_trial in enumerate(x_input): 
+      if self.switchmaps: self.resort_emat()
+      s_input[trialn] = self.emat[x_input_trial]
+    # format output
+    i_input = tr.unsqueeze(tr.LongTensor(i_input),1)
+    s_input = tr.unsqueeze(tr.Tensor(np.concatenate(s_input)),1)
+    yseq = tr.unsqueeze(tr.LongTensor(x_input.reshape(-1)),1)
+    return i_input,s_input,yseq
+
+
 class TaskDualPM():
   """ 
 
@@ -93,7 +177,7 @@ class TaskDualPM():
     """
     ## OG task probes
     # sample OG stimulus sequence
-    ''' use stimuli 10: for OG in dual tasks'''
+    ''' use stimuli 10+: for OG in dual tasks'''
     stim_seq = np.random.randint(10,self.num_stim_tokens-10,trial_len)
     # include positive OG trials
     positive_og_probes = np.random.randint(0,trial_len,pos_og_bias)
@@ -117,6 +201,7 @@ class TaskDualPM():
       pm_stim_idx = pm_action
       stim_seq[pm_probe_pos] = pm_stim_idx
     return stim_seq,action_seq
+
 
 
 class PurePM():

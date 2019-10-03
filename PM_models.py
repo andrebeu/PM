@@ -10,6 +10,103 @@ assumes first input is the PM cue
 
 tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
 
+
+class NetAMEM(tr.nn.Module):
+  """ 
+  arbitrary maps EM net 
+  """
+  def __init__(self,stsize=25,emsetting=1,wmsetting=1,seed=0):
+    super().__init__()
+    tr.manual_seed(seed)
+    # params
+    self.nmaps_max = 4
+    # net dims
+    self.instdim = 10
+    self.stimdim = 14
+    self.wmdim = stsize
+    self.emdim = stsize
+    self.outdim = self.wmdim+self.emdim
+    self.smdim = self.nmaps_max+1 # unit 0 not used
+    # instruction in pathway
+    self.embed_instruct = tr.nn.Embedding(self.nmaps_max+1,self.instdim)
+    self.i2inst = tr.nn.Linear(self.instdim,self.instdim,bias=True) 
+    # stimulus in pathway
+    self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=True)
+    # main LSTM
+    self.lstm1 = tr.nn.LSTMCell(self.instdim+self.stimdim,self.wmdim)
+    self.lstm2 = tr.nn.LSTMCell(self.wmdim,self.wmdim)
+    self.init_lstm1 = tr.nn.Parameter(tr.rand(2,1,self.wmdim),requires_grad=True)
+    self.init_lstm2 = tr.nn.Parameter(tr.rand(2,1,self.wmdim),requires_grad=True)
+    # output layers
+    self.cell2outhid = tr.nn.Linear(self.outdim,self.outdim,bias=True)
+    self.ff_hid2ulog = tr.nn.Linear(self.outdim,self.smdim,bias=True)
+    # EM setting 
+    self.EMsetting = emsetting
+    self.WMsetting = wmsetting
+    return None
+
+  def forward(self,iseq,sseq,store_states=False):
+    """ """
+    ep_len = len(iseq)
+    # instruction pathway
+    inst_seq = self.embed_instruct(iseq)
+    inst_seq = self.i2inst(inst_seq).relu()
+    # stim in path 
+    stim_seq = self.ff_stim(sseq).relu()
+    # init EM
+    self.EM_key,self.EM_value = [],[]
+    # save lstm states
+    cstateL,hstateL = [],[]
+    # collect outputs
+    outputs = -tr.ones(ep_len,1,self.outdim)
+    # LSTM unroll
+    h_lstm1,c_lstm1 = self.init_lstm1
+    h_lstm2,c_lstm2 = self.init_lstm2 
+    for tstep in range(ep_len):
+      ## LSTM 1
+      lstm1_in = tr.cat([inst_seq[tstep],stim_seq[tstep]],-1)
+      h_lstm1,c_lstm1 = self.lstm1(lstm1_in,(h_lstm1,c_lstm1))
+      wm_output_t = h_lstm1
+      ## EM retrieval and encoding
+      if (self.EMsetting>0): 
+        # em key
+        emk = emv = h_lstm1
+        if (iseq[tstep]==0): 
+          em_output_t = self.retrieve(emk)
+        else:
+          self.encode(emk,emv)
+          em_output_t = tr.zeros_like(h_lstm1)
+      else: 
+        em_output_t = tr.zeros_like(h_lstm1)
+      ## deep LSTM 
+      if self.WMsetting==2:
+        lstm2_in = h_lstm1 
+        wm_output_t,c_lstm2 = self.lstm2(lstm2_in,(wm_output_t,c_lstm2))
+      ## output layer
+      outputs[tstep] = tr.cat([wm_output_t,em_output_t],-1)
+    ## output path
+    outputs = self.cell2outhid(outputs).relu()
+    yhat_ulog = self.ff_hid2ulog(outputs)
+    # save lstm states
+    self.cstates,self.hstates = np.array(cstateL),np.array(hstateL)
+    return yhat_ulog
+
+  def retrieve(self,emquery):
+    emquery = emquery.detach().numpy()
+    EM_K = np.concatenate(self.EM_key)
+    qksim = -pairwise_distances(emquery,EM_K,metric='cosine').round(2).squeeze()
+    retrieve_index = qksim.argmax()
+    em_output = tr.Tensor(self.EM_value[retrieve_index])
+    return em_output
+
+  def encode(self,emk,emv):
+    emk = emk.detach().numpy()
+    emv = emv.detach().numpy()
+    self.EM_key.append(emk)
+    self.EM_value.append(emv)
+    return None
+
+
 class NetDualLSTMToy(tr.nn.Module):
   """ 
   two LSTMS 
@@ -341,8 +438,8 @@ class PINet(tr.nn.Module):
       ## main layer
       lstm_main_in = tr.cat([inst_seq[tstep],self.h_stim],-1)
       self.h_main,self.c_main = self.lstm_main(lstm_main_in,(self.h_main,self.c_main))
-      self.cstateL.append(self.c_main.detach().numpy().squeeze())
       self.hstateL.append(self.h_main.detach().numpy().squeeze())
+      self.cstateL.append(self.c_main.detach().numpy().squeeze())
       ## EM retrieval 
       if self.EMbool and (iseq[tstep] == self.resp_trial_flag):
         query = np.concatenate([
@@ -372,7 +469,8 @@ class PINet(tr.nn.Module):
     cell_outputs = self.cell2outhid(cell_outputs).relu()
     yhat_ulog = self.ff_hid2ulog(cell_outputs)
     ## storing states
-    self.cstates,self.hstates = np.array(self.cstateL),np.array(self.hstateL)
+    self.hstates = np.array(self.hstateL)
+    self.cstates = np.array(self.cstateL)
     return yhat_ulog
 
 
