@@ -7,7 +7,6 @@ from PM_models import *
 from PM_tasks import *
 
 
-
 seed = int(sys.argv[1])
 # task
 switchmaps = 1
@@ -20,7 +19,7 @@ emsetting = int(sys.argv[2])
 # training
 ntrials = int(sys.argv[3])
 trlen = int(sys.argv[4])
-neps = 150000
+neps = 250000
 
 fdir = 'model_data/amtask-sweep1/'
 fname = 'lstm_%i-em_%i-nmaps_%i-ntrials_%i-trlen_%i-ntoksurp_%i-seed_%i'%(

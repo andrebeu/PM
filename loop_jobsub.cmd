@@ -14,7 +14,7 @@ declare -a em_arr=(0 1)
 declare -a ntrials_arr=(1 2)
 declare -a trlen_arr=(20 30 40)
 
-for seed in {0..9}; do 
+for seed in {0..19}; do 
   for em in "${em_arr[@]}"; do 
     for ntrials in "${ntrials_arr[@]}"; do 
       for trlen in "${trlen_arr[@]}"; do 
