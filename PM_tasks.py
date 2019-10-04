@@ -15,13 +15,13 @@ class TaskArbitraryMaps():
   ''' 
   instruct token 0 using during test phase
   '''
-  def __init__(self,nmaps,switchmaps=True,ntokens_surplus=0,stimdim=14,seed=0):
+  def __init__(self,nmaps,switchmaps=True,ntokens_surplus=0,seed=0):
     tr.manual_seed(seed)
     np.random.seed(seed)
     self.switchmaps=switchmaps
     self.nmaps = nmaps
     self.ntokens = 1+nmaps+ntokens_surplus
-    self.stimdim = stimdim
+    self.stimdim = 14
     self.sample_emat()
 
   def sample_emat(self):
@@ -32,10 +32,6 @@ class TaskArbitraryMaps():
     if resort_mode == 'random':
       # self.emat = self.emat[np.random.permutation(np.arange(self.ntokens))]
       self.emat = np.random.permutation(self.emat)
-
-  def gen_ep_data(self,ntrials,trlen,stationary=True):
-    if not stationary:
-      self.resort_emat()
 
   def gen_ep_data(self,ntrials,trlen):
     """ 
@@ -64,21 +60,16 @@ class TaskArbitraryMaps():
         for i in range(ntrials)
     ])
     i_test_input = np.zeros([ntrials,trlen])
-    # full instruction sequence
     i_input = np.concatenate([
                   i_encoding_input,i_test_input],
                 1).astype(int).reshape(-1) # (ntrials,trlen+)
-    # print('i_input',i_input.reshape(ntrials,-1))
     ## stimulus
     x_encoding_input = i_encoding_input
     x_test_input = np.random.randint(1,self.nmaps+1,[ntrials,trlen])
-    # print(1,x_test_input)
-    x_encoding_input
-    # print('x_test',x_test_input)
     x_input = np.concatenate([i_encoding_input,x_test_input],1)
-    # print('x_input',x_input)
     ''' 
-    embed: x_input [ntrials,nmaps+trlen] -> s_input [ntrials*(nmaps+trlen),edim]
+    embed x_input: 
+    [ntrials,nmaps+trlen] -> s_input [ntrials*(nmaps+trlen),edim]
     explicit loop required for flatten and embedd x_input
     because if switchmaps=1, matrix is resorted between trials
     and therefore same stimulus token integers correspond to

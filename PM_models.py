@@ -19,7 +19,7 @@ class NetAMEM(tr.nn.Module):
     super().__init__()
     tr.manual_seed(seed)
     # params
-    self.nmaps_max = 4
+    self.nmaps_max = 10
     # net dims
     self.instdim = 10
     self.stimdim = 14
@@ -63,6 +63,7 @@ class NetAMEM(tr.nn.Module):
     h_lstm1,c_lstm1 = self.init_lstm1
     h_lstm2,c_lstm2 = self.init_lstm2 
     for tstep in range(ep_len):
+      # print(tstep,iseq[tstep],sseq[tstep,0,0])
       ## LSTM 1
       lstm1_in = tr.cat([inst_seq[tstep],stim_seq[tstep]],-1)
       h_lstm1,c_lstm1 = self.lstm1(lstm1_in,(h_lstm1,c_lstm1))

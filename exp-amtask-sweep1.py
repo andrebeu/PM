@@ -9,19 +9,18 @@ from PM_tasks import *
 
 
 seed = int(sys.argv[1])
-
 # task
 switchmaps = 1
-nmaps = int(sys.argv[3])
+nmaps = 4
 ntokens_surplus = 0
 # net
 stsize = 20
 wmsetting = 1
 emsetting = int(sys.argv[2])
 # training
-ntrials = 1
-trlen = 30
-neps = 100000
+ntrials = int(sys.argv[3])
+trlen = int(sys.argv[4])
+neps = 150000
 
 fdir = 'model_data/amtask-sweep1/'
 fname = 'lstm_%i-em_%i-nmaps_%i-ntrials_%i-trlen_%i-ntoksurp_%i-seed_%i'%(
@@ -68,3 +67,4 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
 
 trsc = run_net(net,task,neps,ntrials,trlen,training=True)
 np.save(fdir+fname+'-trsc',trsc)
+tr.save(net.state_dict(),fdir+fname+'-model.pt')
