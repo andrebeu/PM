@@ -2,7 +2,7 @@
 
 #SBATCH --gpu-accounting
 
-#SBATCH -t 24:00:00			# runs for 48 hours (max)  
+#SBATCH -t 48:00:00			# runs for 48 hours (max)  
 #SBATCH -c 8				# number of cores 4
 #SBATCH -N 1				# node count 
 #SBATCH --ntasks-per-node=1

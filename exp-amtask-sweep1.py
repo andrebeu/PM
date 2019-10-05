@@ -11,7 +11,7 @@ seed = int(sys.argv[1])
 # task
 switchmaps = 1
 nmaps = 4
-ntokens_surplus = 0
+ntokens_surplus = 50
 # net
 stsize = 20
 wmsetting = 1
@@ -19,7 +19,7 @@ emsetting = int(sys.argv[2])
 # training
 ntrials = int(sys.argv[3])
 trlen = int(sys.argv[4])
-neps = 250000
+neps = 1000000
 
 fdir = 'model_data/amtask-sweep1/'
 fname = 'lstm_%i-em_%i-nmaps_%i-ntrials_%i-trlen_%i-ntoksurp_%i-seed_%i'%(
