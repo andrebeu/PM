@@ -20,10 +20,10 @@ emsetting = int(sys.argv[2])
 # training
 ntrials = int(sys.argv[3])
 trlen = int(sys.argv[4])
-neps = 100
+neps = 1000000
 
 fdir = 'model_data/amtask-sweep1/'
-fname = '_GPU_TEST-lstm_%i-em_%i-nmaps_%i-ntrials_%i-trlen_%i-ntoksurp_%i-seed_%i'%(
+fname = 'lstm_%i-em_%i-nmaps_%i-ntrials_%i-trlen_%i-ntoksurp_%i-seed_%i'%(
             stsize,emsetting,nmaps,ntrials,trlen,ntokens_surplus,seed)
 
 task = TaskArbitraryMaps(nmaps=nmaps,
@@ -72,13 +72,13 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
   score = score.reshape(neps,ntrials,trlen+task.nmaps)
   return score
 
-## train
+print('TRAIN')
 trsc = run_net(net,task,neps,ntrials,trlen,training=True)
 
-## eval
-neps_ev = 10
-ntrials_ev = 2
-trlen_ev = 5
+print('EVAL')
+neps_ev = 200
+ntrials_ev = 100
+trlen_ev = 10
 
 net.EMsetting = 1
 evsc_em1 = run_net(net,task,neps_ev,ntrials_ev,trlen_ev,training=False)

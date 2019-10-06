@@ -18,7 +18,7 @@ for seed in {0..19}; do
   for em in "${em_arr[@]}"; do 
     for ntrials in "${ntrials_arr[@]}"; do 
       for trlen in "${trlen_arr[@]}"; do 
-        sbatch ${wd_dir}/gpu_jobsub.cmd ${seed} ${em} ${ntrials} ${trlen} 
+        sbatch ${wd_dir}/cpu_jobsub.cmd ${seed} ${em} ${ntrials} ${trlen} 
       done
     done
 	done
