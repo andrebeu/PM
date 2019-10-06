@@ -7,7 +7,7 @@
 #SBATCH -N 1				# node count 
 #SBATCH --ntasks-per-node=1
 #SBATCH --ntasks-per-socket=2
-#SBATCH --gres=gpu:0		# number of gpus 4
+#SBATCH --gres=gpu:1		# number of gpus 4
 
 seed=${1}
 emsetting=${2}
