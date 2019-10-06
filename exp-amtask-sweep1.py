@@ -6,7 +6,7 @@ import numpy as np
 from PM_models import *
 from PM_tasks import *
 
-GPU = True
+GPU = int(sys.argv[5])
 
 seed = int(sys.argv[1])
 # task

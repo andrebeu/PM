@@ -13,13 +13,14 @@ seed=${1}
 emsetting=${2}
 ntrials=${3}
 trlen=${4}
+gpu=1
 
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2
 
 printf "\n\n complex maps task \n\n"
 
-srun python -u "/tigress/abeukers/wd/pm/exp-amtask-sweep1.py" ${seed} ${emsetting} ${ntrials} ${trlen} 
+srun python -u "/tigress/abeukers/wd/pm/exp-amtask-sweep1.py" ${seed} ${emsetting} ${ntrials} ${trlen} ${gpu}
 
 
 printf "\n\nGPU profiling \n\n"
