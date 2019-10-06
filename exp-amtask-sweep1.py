@@ -74,6 +74,8 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
 
 print('TRAIN')
 trsc = run_net(net,task,neps,ntrials,trlen,training=True)
+np.save(fdir+fname+'-trsc',trsc)
+tr.save(net.state_dict(),fdir+fname+'-model.pt')
 
 print('EVAL')
 neps_ev = 200
@@ -86,7 +88,5 @@ net.EMsetting = 0
 evsc_em0 = run_net(net,task,neps_ev,ntrials_ev,trlen_ev,training=False)
 
 ## save
-np.save(fdir+fname+'-trsc',trsc)
 np.save(fdir+fname+'em_ev_1-evsc',evsc_em1)
 np.save(fdir+fname+'em_ev_0-trsc',evsc_em0)
-tr.save(net.state_dict(),fdir+fname+'-model.pt')
