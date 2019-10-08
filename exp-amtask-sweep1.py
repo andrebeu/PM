@@ -54,7 +54,7 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
     # forward prop
     iseq,xseq,ytarget = task.gen_ep_data(ntrials,trlen)
     if GPU:
-      yhat_ulog = net(iseq.cuda(),xseq.cuda())
+      yhat_ulog = net(iseq.to('cuda:0'),xseq.to('cuda:0'))
     else:
       yhat_ulog = net(iseq,xseq)
     # eval
