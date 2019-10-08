@@ -98,8 +98,11 @@ class NetAMEM(tr.nn.Module):
     qksim = -pairwise_distances(emquery,EM_K,metric='cosine').round(2).squeeze()
     retrieve_index = qksim.argmax()
     em_output = tr.Tensor(self.EM_value[retrieve_index])
-    return em_output
-
+    try:
+      return em_output.gpu()
+    except:
+      return em_output
+      
   def encode(self,emk,emv):
     emk = emk.detach().cpu().numpy()
     emv = emv.detach().cpu().numpy()
