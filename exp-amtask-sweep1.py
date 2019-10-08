@@ -36,7 +36,9 @@ net = NetAMEM(stsize=stsize,
               wmsetting=wmsetting,
               seed=seed)
 if GPU:
+  print('IN GPU',tr.cuda.is_available())
   net.cuda()
+  device = 'cuda:0'
 
 maxsoftmax = lambda ulog: tr.argmax(tr.softmax(ulog,-1),-1)
 
@@ -52,9 +54,9 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
     # forward prop
     iseq,xseq,ytarget = task.gen_ep_data(ntrials,trlen)
     if GPU:
-      iseq = iseq.cuda()
-      xseq = xseq.cuda()
-    yhat_ulog = net(iseq,xseq)
+      yhat_ulog = net(iseq.cuda(),xseq.cuda())
+    else:
+      yhat_ulog = net(iseq,xseq)
     # eval
     score_t = (maxsoftmax(yhat_ulog) == ytarget).numpy()
     score[ep] = np.squeeze(score_t)
