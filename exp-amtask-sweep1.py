@@ -57,9 +57,10 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
     # forward prop
     iseq,xseq,ytarget = task.gen_ep_data(ntrials,trlen)
     if GPU:
-      yhat_ulog = net(iseq.to('cuda:0'),xseq.to('cuda:0'))
-    else:
-      yhat_ulog = net(iseq,xseq)
+      iseq = iseq.cuda()
+      xseq = xseq.cuda()
+      ytarget = ytarget.cuda()
+    yhat_ulog = net(iseq,xseq)
     # eval
     score_t = (maxsoftmax(yhat_ulog) == ytarget).numpy()
     score[ep] = np.squeeze(score_t)
