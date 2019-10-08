@@ -62,7 +62,7 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
       ytarget = ytarget.cuda()
     yhat_ulog = net(iseq,xseq)
     # eval
-    score_t = (maxsoftmax(yhat_ulog) == ytarget).numpy()
+    score_t = (maxsoftmax(yhat_ulog) == ytarget).cpu().numpy()
     score[ep] = np.squeeze(score_t)
     if training:
       # backprop
