@@ -93,7 +93,7 @@ class NetAMEM(tr.nn.Module):
     return yhat_ulog
 
   def retrieve(self,emquery):
-    emquery = emquery.detach().numpy()
+    emquery = emquery.detach().cpu().numpy()
     EM_K = np.concatenate(self.EM_key)
     qksim = -pairwise_distances(emquery,EM_K,metric='cosine').round(2).squeeze()
     retrieve_index = qksim.argmax()
@@ -101,8 +101,8 @@ class NetAMEM(tr.nn.Module):
     return em_output
 
   def encode(self,emk,emv):
-    emk = emk.detach().numpy()
-    emv = emv.detach().numpy()
+    emk = emk.detach().cpu().numpy()
+    emv = emv.detach().cpu().numpy()
     self.EM_key.append(emk)
     self.EM_value.append(emv)
     return None

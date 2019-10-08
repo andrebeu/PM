@@ -22,7 +22,6 @@ printf "\n\n complex maps task \n\n"
 
 srun python -u "/tigress/abeukers/wd/pm/exp-amtask-sweep1.py" ${seed} ${emsetting} ${ntrials} ${trlen} ${gpu}
 
-
 printf "\n\nGPU profiling \n\n"
 sacct --format="elapsed,CPUTime,TotalCPU"
 nvidia-smi --query-accounted-apps=gpu_serial,gpu_utilization,mem_utilization,max_memory_usage --format=csv
