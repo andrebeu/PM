@@ -12,7 +12,9 @@ from help_amtask import *
 
 ## train params
 em_trL = [0,1]
+em_trL = [1]
 ntrials_trL = [1,2]
+ntrials_trL = [2]
 trlen_trL = [20,30,40]
 ntoksurpL = [0,50]
 ## eval params
