@@ -54,7 +54,6 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
     if GPU:
       iseq = iseq.cuda()
       xseq = xseq.cuda()
-      ytarget = ytarget.cuda()
     yhat_ulog = net(iseq,xseq)
     # eval
     score_t = (maxsoftmax(yhat_ulog) == ytarget).numpy()
