@@ -37,8 +37,8 @@ net = NetAMEM(stsize=stsize,
               seed=seed)
 if GPU:
   print('IN GPU',tr.cuda.is_available())
-  net.cuda()
   device = 'cuda:0'
+  net = net.to(device)
 
 maxsoftmax = lambda ulog: tr.argmax(tr.softmax(ulog,-1),-1)
 
