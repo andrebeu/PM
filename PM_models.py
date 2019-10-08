@@ -86,6 +86,8 @@ class NetAMEM(tr.nn.Module):
       ## output layer
       outputs[tstep] = tr.cat([wm_output_t,em_output_t],-1)
     ## output path
+    if tr.cuda.is_available():
+      outputs = outputs.cuda()
     outputs = self.cell2outhid(outputs).relu()
     yhat_ulog = self.ff_hid2ulog(outputs)
     # save lstm states
