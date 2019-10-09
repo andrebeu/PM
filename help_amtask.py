@@ -16,6 +16,31 @@ def mov_avg(arr,wind):
 maxsoftmax = lambda ulog: tr.argmax(tr.softmax(ulog,-1),-1)
 
 
+def run_net(net,task,neps,ntrials,trlen,training=True):
+  '''
+  returns score [neps,ntrials,nmaps+trlen]
+  '''
+  lossop = tr.nn.CrossEntropyLoss()
+  optiop = tr.optim.Adam(net.parameters(), lr=0.001)
+  exp_len = ntrials*(task.nmaps+trlen)
+  score = -np.ones([neps,exp_len])
+  for ep in range(neps):
+    # forward prop
+    iseq,xseq,ytarget = task.gen_ep_data(ntrials,trlen)
+    yhat_ulog = net(iseq,xseq)
+    # eval
+    score_t = (maxsoftmax(yhat_ulog) == ytarget).numpy()
+    score[ep] = np.squeeze(score_t)
+    if training:
+      loss = 0
+      for tstep in range(len(iseq)):
+        loss += lossop(yhat_ulog[tstep],ytarget[tstep])
+      optiop.zero_grad()
+      loss.backward(retain_graph=True)
+      optiop.step()
+  score = score.reshape(neps,ntrials,trlen+task.nmaps)
+  return score
+  
 def load_net(emsetting,ntrials,trlen,ntoksurp,seed):
   stsize,nmaps = 20,4
   net = NetAMEM(stsize=stsize,emsetting=emsetting,wmsetting=1,seed=seed)
