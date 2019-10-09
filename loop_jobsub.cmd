@@ -12,7 +12,7 @@ declare -a instdim_arr=(8 10 12)
 declare -a stimdim_arr=(8 10 12)
 declare -a stsize_arr=(8 10 12)
 declare -a deep_arr=(0 1)
-declare -a wmsetting_arr=(0 1)
+declare -a wmsetting_arr=(1 2)
 
 for seed in {0..19}; do 
   for instdim in "${instdim_arr[@]}"; do 
