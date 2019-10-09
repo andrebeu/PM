@@ -100,10 +100,9 @@ class NetAMEM(tr.nn.Module):
     qksim = -pairwise_distances(emquery,EM_K,metric='cosine').round(2).squeeze()
     retrieve_index = qksim.argmax()
     em_output = tr.Tensor(self.EM_value[retrieve_index])
-    try:
-      return em_output.cuda()
-    except:
-      return em_output
+    if tr.cuda.is_available():
+      em_output = em_output.cuda()
+    return em_output
 
   def encode(self,emk,emv):
     emk = emk.detach().cpu().numpy()
