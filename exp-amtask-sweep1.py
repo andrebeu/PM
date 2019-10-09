@@ -15,7 +15,7 @@ nmaps = 4
 ntokens_surplus = 50
 # net
 stsize = 20
-wmsetting = 1
+wmsetting = 2
 emsetting = int(sys.argv[2])
 # training
 ntrials = int(sys.argv[3])
@@ -23,8 +23,8 @@ trlen = int(sys.argv[4])
 neps = 1000000
 
 fdir = 'model_data/amtask-sweep1/'
-fname = 'lstm_%i-em_%i-nmaps_%i-ntrials_%i-trlen_%i-ntoksurp_%i-seed_%i'%(
-            stsize,emsetting,nmaps,ntrials,trlen,ntokens_surplus,seed)
+fname = 'lstm(%i)_%i-em_%i-nmaps_%i-ntrials_%i-trlen_%i-ntoksurp_%i-seed_%i'%(
+            wmsetting,stsize,emsetting,nmaps,ntrials,trlen,ntokens_surplus,seed)
 
 task = TaskArbitraryMaps(nmaps=nmaps,
                          switchmaps=switchmaps,
