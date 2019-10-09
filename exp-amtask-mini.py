@@ -27,8 +27,8 @@ trlen = 1
 neps = 100000
 
 fdir = 'model_data/amtask-mini/'
-fname = 'lstm(%i)_%i-deep_%i-em_%i-instdim_%i-stimdim_%i-seed_%i'%(
-            wmsetting,stsize,deep,emsetting,instdim,stimdim,seed)
+fname = 'ntrials_%i-lstm(%i)_%i-deep_%i-em_%i-instdim_%i-stimdim_%i-seed_%i'%(
+            ntrials,wmsetting,stsize,deep,emsetting,instdim,stimdim,seed)
 
 task = TaskArbitraryMaps(
   nmaps=nmaps,

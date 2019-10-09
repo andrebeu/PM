@@ -8,10 +8,9 @@ stamp=$(date +"%m%d%H%M%S")
 wd_dir="/tigress/abeukers/wd/pm"
 ##
 
-
-declare -a instdim_arr=(6 8 10 12)
-declare -a stimdim_arr=(6 8 10 12)
-declare -a stsize_arr=(8 10 12 14)
+declare -a instdim_arr=(8 10 12)
+declare -a stimdim_arr=(8 10 12)
+declare -a stsize_arr=(8 10 12)
 declare -a deep_arr=(0 1)
 declare -a wmsetting_arr=(0 1)
 
