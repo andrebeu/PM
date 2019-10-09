@@ -17,12 +17,12 @@ wmsetting = int(sys.argv[6])
 
 # task
 switchmaps = 1
-nmaps = 2
+nmaps = 3
 ntokens_surplus = 0
 # net
 emsetting = 0
 # training
-ntrials = 1
+ntrials = 2
 trlen = 1
 neps = 100000
 
