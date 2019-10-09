@@ -22,8 +22,8 @@ class NetAMmini(tr.nn.Module):
     # params
     self.nmaps_max = 10
     # net dims
-    self.instdim = 10
-    self.stimdim = 14
+    self.instdim = 5
+    self.stimdim = 4
     self.wmdim = stsize
     self.emdim = stsize
     self.outdim = self.wmdim+self.emdim
@@ -35,9 +35,7 @@ class NetAMmini(tr.nn.Module):
     self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=True)
     # main LSTM
     self.lstm1 = tr.nn.LSTMCell(self.instdim+self.stimdim,self.wmdim)
-    self.lstm2 = tr.nn.LSTMCell(self.wmdim,self.wmdim)
     self.init_lstm1 = tr.nn.Parameter(tr.rand(2,1,self.wmdim),requires_grad=True)
-    self.init_lstm2 = tr.nn.Parameter(tr.rand(2,1,self.wmdim),requires_grad=True)
     # output layers
     self.cell2outhid = tr.nn.Linear(self.outdim,self.outdim,bias=True)
     self.ff_hid2ulog = tr.nn.Linear(self.outdim,self.smdim,bias=True)
@@ -117,34 +115,35 @@ class NetAMEM(tr.nn.Module):
   """ 
   arbitrary maps EM net 
   """
-  def __init__(self,stsize=25,emsetting=1,wmsetting=1,seed=0):
+  def __init__(self,stsize=25,emsetting=1,wmsetting=1,seed=0,instdim=10,stimdim=10):
     super().__init__()
     tr.manual_seed(seed)
     # params
     self.nmaps_max = 10
     # net dims
-    self.instdim = 10
-    self.stimdim = 14
+    self.instdim = instdim
+    self.stimdim = stimdim
     self.wmdim = stsize
     self.emdim = stsize
     self.outdim = self.wmdim+self.emdim
     self.smdim = self.nmaps_max+1 # unit 0 not used
     # instruction in pathway
     self.embed_instruct = tr.nn.Embedding(self.nmaps_max+1,self.instdim)
-    self.i2inst = tr.nn.Linear(self.instdim,self.instdim,bias=True) 
+    self.i2inst = tr.nn.Linear(self.instdim,self.instdim,bias=False) 
     # stimulus in pathway
-    self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=True)
+    self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=False)
     # main LSTM
     self.lstm1 = tr.nn.LSTMCell(self.instdim+self.stimdim,self.wmdim)
     self.lstm2 = tr.nn.LSTMCell(self.wmdim,self.wmdim)
     self.init_lstm1 = tr.nn.Parameter(tr.rand(2,1,self.wmdim),requires_grad=True)
     self.init_lstm2 = tr.nn.Parameter(tr.rand(2,1,self.wmdim),requires_grad=True)
     # output layers
-    self.cell2outhid = tr.nn.Linear(self.outdim,self.outdim,bias=True)
-    self.ff_hid2ulog = tr.nn.Linear(self.outdim,self.smdim,bias=True)
+    self.cell2outhid = tr.nn.Linear(self.outdim,self.outdim,bias=False)
+    self.ff_hid2ulog = tr.nn.Linear(self.outdim,self.smdim,bias=False)
     # EM setting 
     self.EMsetting = emsetting
     self.WMsetting = wmsetting
+    self.deep = True
     return None
 
   def forward(self,iseq,sseq,store_states=False):
@@ -152,9 +151,11 @@ class NetAMEM(tr.nn.Module):
     ep_len = len(iseq)
     # instruction pathway
     inst_seq = self.embed_instruct(iseq)
-    inst_seq = self.i2inst(inst_seq).relu()
-    # stim in path 
-    stim_seq = self.ff_stim(sseq).relu()
+    stim_seq = sseq
+    if self.deep:
+      inst_seq = self.i2inst(inst_seq).relu()
+      # stim in path 
+      stim_seq = self.ff_stim(stim_seq).relu()
     # init EM
     self.EM_key,self.EM_value = [],[]
     # save lstm states
@@ -190,7 +191,8 @@ class NetAMEM(tr.nn.Module):
     ## output path
     if tr.cuda.is_available():
       outputs = outputs.cuda()
-    outputs = self.cell2outhid(outputs).relu()
+    if self.deep:
+      outputs = self.cell2outhid(outputs).relu()
     yhat_ulog = self.ff_hid2ulog(outputs)
     # save lstm states
     self.cstates,self.hstates = np.array(cstateL),np.array(hstateL)

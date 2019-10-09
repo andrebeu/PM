@@ -15,13 +15,13 @@ class TaskArbitraryMaps():
   ''' 
   instruct token 0 using during test phase
   '''
-  def __init__(self,nmaps,switchmaps=True,ntokens_surplus=0,seed=0):
+  def __init__(self,nmaps,switchmaps=True,ntokens_surplus=0,seed=0,stimdim=10):
     tr.manual_seed(seed)
     np.random.seed(seed)
     self.switchmaps=switchmaps
     self.nmaps = nmaps
     self.ntokens = 1+nmaps+ntokens_surplus
-    self.stimdim = 14
+    self.stimdim = stimdim
     self.sample_emat()
 
   def sample_emat(self):

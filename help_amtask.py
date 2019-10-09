@@ -38,6 +38,8 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
       optiop.zero_grad()
       loss.backward(retain_graph=True)
       optiop.step()
+    if ep%(neps/5)==0:
+      print(ep/neps,score_t.mean())
   score = score.reshape(neps,ntrials,trlen+task.nmaps)
   return score
   
