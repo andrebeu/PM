@@ -11,93 +11,104 @@ assumes first input is the PM cue
 tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
 
 
-
-class NetAMmini(tr.nn.Module):
+class NetBarCode(tr.nn.Module):
   """ 
   arbitrary maps EM net 
   """
-  def __init__(self,stsize=25,emsetting=1,wmsetting=1,seed=0):
+  def __init__(self,wmsize=5,emsetting=1,seed=0,instdim=10,stimdim=10,debug=False):
     super().__init__()
     tr.manual_seed(seed)
     # params
     self.nmaps_max = 10
-    # net dims
-    self.instdim = 5
-    self.stimdim = 4
-    self.wmdim = stsize
-    self.emdim = stsize
-    self.outdim = self.wmdim+self.emdim
+    self.instdim = instdim
+    self.stimdim = stimdim
+    self.wmdim = wmsize
+    self.emdim = wmsize
+    ## optional hidden layers
+    self.inst_hiddim = 0 
+    self.stim_hiddim = 0
+    self.out_hiddim = 1 
+    ##
+    self.outdim = self.stimdim+self.wmdim+self.emdim
     self.smdim = self.nmaps_max+1 # unit 0 not used
-    # instruction in pathway
+    # input pathways
     self.embed_instruct = tr.nn.Embedding(self.nmaps_max+1,self.instdim)
-    self.i2inst = tr.nn.Linear(self.instdim,self.instdim,bias=True) 
-    # stimulus in pathway
-    self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=True)
+    self.inst_hid = tr.nn.Linear(self.instdim,self.instdim,bias=False) 
+    self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=False)
+    self.stim_hid = tr.nn.Linear(self.stimdim,self.stimdim,bias=False) 
     # main LSTM
-    self.lstm1 = tr.nn.LSTMCell(self.instdim+self.stimdim,self.wmdim)
-    self.init_lstm1 = tr.nn.Parameter(tr.rand(2,1,self.wmdim),requires_grad=True)
-    # output layers
-    self.cell2outhid = tr.nn.Linear(self.outdim,self.outdim,bias=True)
-    self.ff_hid2ulog = tr.nn.Linear(self.outdim,self.smdim,bias=True)
+    self.lstm = tr.nn.LSTMCell(self.instdim+self.stimdim,self.wmdim)
+    self.init_lstm = tr.nn.Parameter(tr.rand(2,1,self.wmdim),requires_grad=True)
+    # ouput
+    self.out_hid = tr.nn.Linear(self.outdim,self.outdim,bias=False)
+    self.ff_hid2ulog = tr.nn.Linear(self.outdim,self.smdim,bias=False)
     # EM setting 
     self.EMsetting = emsetting
-    self.WMsetting = wmsetting
+    self.debug = debug
+    self.emk = 'stim'
     return None
 
   def forward(self,iseq,sseq,store_states=False):
     """ """
     ep_len = len(iseq)
-    # instruction pathway
-    inst_seq = self.embed_instruct(iseq)
-    inst_seq = self.i2inst(inst_seq).relu()
-    # stim in path 
-    stim_seq = self.ff_stim(sseq).relu()
-    # init EM
+    # input pathways
+    inst = self.embed_instruct(iseq)
+    stim = self.ff_stim(sseq).relu()
+    if self.inst_hiddim:
+      inst = self.inst_hid(inst).relu()
+    if self.stim_hiddim:
+      stim = self.stim_hid(stim).relu()
+    percept = tr.cat([inst,stim],-1)
+    # initialize EM, LSTM, and outputs
     self.EM_key,self.EM_value = [],[]
-    # save lstm states
-    cstateL,hstateL = [],[]
-    # collect outputs
     outputs = -tr.ones(ep_len,1,self.outdim)
-    # LSTM unroll
-    h_lstm1,c_lstm1 = self.init_lstm1
-    h_lstm2,c_lstm2 = self.init_lstm2 
+    h_lstm,c_lstm = self.init_lstm
+    # loop over time
     for tstep in range(ep_len):
-      # print(tstep,iseq[tstep],sseq[tstep,0,0])
-      ## LSTM 1
-      lstm1_in = tr.cat([inst_seq[tstep],stim_seq[tstep]],-1)
-      h_lstm1,c_lstm1 = self.lstm1(lstm1_in,(h_lstm1,c_lstm1))
-      wm_output_t = h_lstm1
-      ## EM retrieval and encoding
+      if self.debug: 
+        print()
+      h_lstm,c_lstm = self.lstm(percept[tstep],(h_lstm,c_lstm))
+      # EM retrieval and encoding
       if (self.EMsetting>0): 
         # em key
-        emk = emv = h_lstm1
-        if (iseq[tstep]==0): 
+        if self.emk=='stim':
+          emk = tr.cat([stim[tstep]],-1)
+        elif self.emk=='conj':
+          emk = tr.cat([stim[tstep],h_lstm],-1)
+        emv_encode = h_lstm
+        if (iseq[tstep]==0):
           em_output_t = self.retrieve(emk)
+          wm_output_t = h_lstm
+          # wm_output_t = tr.zeros_like(h_lstm)
         else:
-          self.encode(emk,emv)
-          em_output_t = tr.zeros_like(h_lstm1)
+          self.encode(emk,emv_encode)
+          em_output_t = tr.zeros_like(emv_encode)
+          wm_output_t = h_lstm
       else: 
-        em_output_t = tr.zeros_like(h_lstm1)
-      ## deep LSTM 
-      if self.WMsetting==2:
-        lstm2_in = h_lstm1 
-        wm_output_t,c_lstm2 = self.lstm2(lstm2_in,(wm_output_t,c_lstm2))
-      ## output layer
-      outputs[tstep] = tr.cat([wm_output_t,em_output_t],-1)
+        em_output_t = tr.zeros_like(h_lstm)
+        wm_output_t = h_lstm
+      # output layer
+      if self.debug:
+        print('st',sseq[tstep,0,0].data)
+        print('wm',h_lstm[0,0].data)
+        print('em',em_output_t[0,0].data)
+      outputs[tstep] = tr.cat([stim[tstep],wm_output_t,em_output_t],-1)
     ## output path
     if tr.cuda.is_available():
       outputs = outputs.cuda()
-    outputs = self.cell2outhid(outputs).relu()
+    if self.out_hiddim:
+      outputs = self.out_hid(outputs).relu()
     yhat_ulog = self.ff_hid2ulog(outputs)
-    # save lstm states
-    self.cstates,self.hstates = np.array(cstateL),np.array(hstateL)
     return yhat_ulog
 
   def retrieve(self,emquery):
     emquery = emquery.detach().cpu().numpy()
     EM_K = np.concatenate(self.EM_key)
-    qksim = -pairwise_distances(emquery,EM_K,metric='cosine').round(2).squeeze()
-    retrieve_index = qksim.argmax()
+    qkdist = pairwise_distances(emquery,EM_K,metric='cosine').squeeze().round(3)
+    if self.debug:
+      print('qkdist2',qkdist)
+      print()
+    retrieve_index = qkdist.argmin()
     em_output = tr.Tensor(self.EM_value[retrieve_index])
     if tr.cuda.is_available():
       em_output = em_output.cuda()

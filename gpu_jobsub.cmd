@@ -13,15 +13,13 @@ seed=${1}
 instdim=${2}
 stimdim=${3}
 stsize=${4}
-deep=${5}
-wmsetting=${6}
 
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2
 
-printf "\n\n MINI complex maps task \n\n"
+printf "\n\n BARCODE complex maps task \n\n"
  
-srun python -u "/tigress/abeukers/wd/pm/exp-amtask-mini.py" ${seed} ${instdim} ${stimdim} ${stsize} ${deep} ${wmsetting}
+srun python -u "/tigress/abeukers/wd/pm/exp-amtask-barcode.py" ${seed} ${instdim} ${stimdim} ${stsize} 
 
 printf "\n\nGPU profiling \n\n"
 sacct --format="elapsed,CPUTime,TotalCPU"
