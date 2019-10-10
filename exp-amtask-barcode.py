@@ -14,6 +14,7 @@ stimdim = int(sys.argv[3])
 wmsize = int(sys.argv[4])
 
 nmaps = 4
+ntrials = 2
 emsetting = 1
 switch = 1
 ntokens = 0
@@ -80,7 +81,7 @@ trscL = []
 nblocks = 2
 emkL = ['stim','conj']
 nepsL = [2000,10000]
-ntrials = 2
+
 trlen = 1
 for idx in range(nblocks):
   net.emk=emkL[idx]
