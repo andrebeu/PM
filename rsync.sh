@@ -1,1 +1,1 @@
-rsync -r -vam abeukers@tigergpu.princeton.edu:/tigress/abeukers/wd/pm/model_data/amtask-mini/* /Users/abeukers/wd/pm/model_data/amtask-mini/
+rsync -r -vam abeukers@tigergpu.princeton.edu:/tigress/abeukers/wd/pm/model_data/amtask-barcode/* /Users/abeukers/wd/pm/model_data/amtask-barcode/

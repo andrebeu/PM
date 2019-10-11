@@ -18,9 +18,12 @@ ntrials = 2
 emsetting = 1
 switch = 1
 ntokens = 0
+## defines training curriculum
+nepsL = [30000]
+curr = '_'.join([str(i) for i in nepsL])
 
 fdir = 'model_data/amtask-barcode/'
-fname = 'nmaps_%i-ntrials_%i-wmsize_%i-instdim_%i-stimdim_%i-seed_%i'%(
+fname = 'nmaps_%i-ntrials_%i-wmsize_%i-instdim_%i-stimdim_%i-curr_%s-seed_%i'%(
             nmaps,ntrials,wmsize,instdim,stimdim,seed)
 
 net = NetBarCode(wmsize=wmsize,
@@ -80,7 +83,6 @@ print('TRAIN')
 trscL = []
 nblocks = 2
 emkL = ['stim','conj']
-nepsL = [2000,10000]
 
 trlen = 1
 for idx in range(nblocks):
