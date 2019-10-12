@@ -12,6 +12,7 @@
 seed=${1}
 nmaps=${2}
 ntrials=${3}
+switch=${4}
 
 
 module load anaconda3/4.4.0
@@ -19,7 +20,7 @@ module load cudnn/cuda-9.1/7.1.2
 
 printf "\n\n BARCODE complex maps task \n\n"
  
-srun python -u "/tigress/abeukers/wd/pm/exp-amtask-barcode.py" ${seed} ${nmaps} ${ntrials}
+srun python -u "/tigress/abeukers/wd/pm/exp-amtask-barcode.py" ${seed} ${nmaps} ${ntrials} ${switch}
 
 printf "\n\nGPU profiling \n\n"
 sacct --format="elapsed,CPUTime,TotalCPU"

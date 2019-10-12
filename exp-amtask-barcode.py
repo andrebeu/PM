@@ -11,13 +11,14 @@ GPU = tr.cuda.is_available()
 seed = int(sys.argv[1])
 nmaps = int(sys.argv[2])
 ntrials = int(sys.argv[3])
+switch = int(sys.argv[4])
 
 instdim = 10
 stimdim = 12
 wmsize = 6
 
 emsetting = 1
-switch = 1
+
 ntokens = 0
 ## defines training curriculum
 nepsL = [1000,99000]
