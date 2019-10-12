@@ -45,10 +45,11 @@ class NetBarCode(tr.nn.Module):
     # EM setting 
     self.EMsetting = emsetting
     self.debug = debug
-    self.emk = 'stim'
+    self.emk = 'conj'
+    self.store_states = False
     return None
 
-  def forward(self,iseq,sseq,store_states=False):
+  def forward(self,iseq,sseq):
     """ """
     ep_len = len(iseq)
     # input pathways
@@ -59,6 +60,8 @@ class NetBarCode(tr.nn.Module):
     if self.stim_hiddim:
       stim = self.stim_hid(stim).relu()
     percept = tr.cat([inst,stim],-1)
+    # saving states
+    statesL = []
     # initialize EM, LSTM, and outputs
     self.EM_key,self.EM_value = [],[]
     outputs = -tr.ones(ep_len,1,self.outdim)
@@ -68,6 +71,9 @@ class NetBarCode(tr.nn.Module):
       if self.debug: 
         print()
       h_lstm,c_lstm = self.lstm(percept[tstep],(h_lstm,c_lstm))
+      if self.store_states:
+        states_t = np.stack([h_lstm.detach().numpy(),c_lstm.detach().numpy()],)
+        statesL.append(states_t)
       # EM retrieval and encoding
       if (self.EMsetting>0): 
         # em key
@@ -94,6 +100,8 @@ class NetBarCode(tr.nn.Module):
         print('em',em_output_t[0,0].data)
       outputs[tstep] = tr.cat([stim[tstep],wm_output_t,em_output_t],-1)
     ## output path
+    if self.store_states:
+      self.states = np.stack(statesL).squeeze()
     if tr.cuda.is_available():
       outputs = outputs.cuda()
     if self.out_hiddim:

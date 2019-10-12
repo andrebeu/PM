@@ -6,8 +6,6 @@ import numpy as np
 from PM_models import *
 from PM_tasks import *
 
-GPU = tr.cuda.is_available()
-
 seed = int(sys.argv[1])
 nmaps = int(sys.argv[2])
 ntrials = int(sys.argv[3])
@@ -35,7 +33,7 @@ net = NetBarCode(wmsize=wmsize,
                  seed=seed,
                  debug=False)
 
-if GPU: net.cuda()
+if tr.cuda.is_available(): net.cuda()
 
 task = TaskArbitraryMaps(
         nmaps=nmaps,
@@ -47,7 +45,7 @@ task = TaskArbitraryMaps(
 
 maxsoftmax = lambda ulog: tr.argmax(tr.softmax(ulog,-1),-1)
 
-def run_net(net,task,neps,ntrials,trlen,training=True):
+def run_net(net,task,neps,ntrials,trlen,training=True,verb=True,return_states=False):
   '''
   returns score [neps,ntrials,nmaps+trlen]
   '''
@@ -55,14 +53,18 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
   optiop = tr.optim.Adam(net.parameters(), lr=0.001)
   exp_len = ntrials*(task.nmaps+trlen)
   score = -np.ones([neps,exp_len])
+  states = -np.ones([neps,exp_len,2,net.wmdim])
   for ep in range(neps):
     # forward prop
     iseq,xseq,ytarget = task.gen_ep_data(ntrials,trlen)
-    if GPU:
+    if tr.cuda.is_available():
       iseq = iseq.cuda()
       xseq = xseq.cuda()
       ytarget = ytarget.cuda()
     yhat_ulog = net(iseq,xseq)
+    if net.store_states:
+      states_ep = net.states
+      states[ep] = net.states
     # eval
     score_t = (maxsoftmax(yhat_ulog) == ytarget).cpu().numpy()
     score[ep] = np.squeeze(score_t)
@@ -74,36 +76,40 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
       optiop.zero_grad()
       loss.backward(retain_graph=True)
       optiop.step()
-    if ep%(neps/5)==0:
+    if verb and ep%(neps/5)==0:
       print(ep/neps,score_t.mean())
   score = score.reshape(neps,ntrials,trlen+task.nmaps)
+  if return_states:
+    return score,states
   return score
 
 
-## curriculum 
+ 
+## curriculum training loop
 print('TRAIN')
-trscL = []
-nblocks = 2
 emkL = ['stim','conj']
-
 trlen = 1
-for idx in range(nblocks):
+trscL = []
+for idx in range(len(emkL)):
   net.emk=emkL[idx]
   trsc = run_net(net,task,nepsL[idx],ntrials,trlen,training=True)
   trscL.append(trsc)
 
-## save
+## save train data
 trsc = np.concatenate(trscL)
 np.save(fdir+fname+'-trsc',trsc)
 tr.save(net.state_dict(),fdir+fname+'-model.pt')
 
+## eval
 print('EVAL')
 net.emk='conj'
+net.store_states=True
 neps_ev = 500
 ntrials_ev = 15
 trlen_ev = 5
 
-for em in [1,0]:
+for em in [0,1]:
   net.EMsetting=em
-  evsc = run_net(net,task,neps_ev,ntrials_ev,trlen_ev,training=False)
+  evsc,states = run_net(net,task,neps_ev,ntrials_ev,trlen_ev,training=False,return_states=True)
   np.save(fdir+fname+'-ev_em_%i-evsc'%em,evsc)
+np.save(fdir+fname+'-ev_em_%i-states'%em,states)
