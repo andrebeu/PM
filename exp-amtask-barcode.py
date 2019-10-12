@@ -24,8 +24,8 @@ nepsL = [1000,99000]
 curr = '_'.join([str(i) for i in nepsL])
 
 fdir = 'model_data/amtask-barcode/'
-fname = 'nmaps_%i-ntrials_%i-wmsize_%i-instdim_%i-stimdim_%i-curr_%s-seed_%i'%(
-            nmaps,ntrials,wmsize,instdim,stimdim,curr,seed)
+fname = 'nmaps_%i-ntrials_%i-switch_%i-wmsize_%i-instdim_%i-stimdim_%i-curr_%s-seed_%i'%(
+            nmaps,ntrials,switch,wmsize,instdim,stimdim,curr,seed)
 
 net = NetBarCode(wmsize=wmsize,
                  emsetting=1,
