@@ -10,16 +10,16 @@
 #SBATCH --gres=gpu:1		# number of gpus 4
 
 seed=${1}
-instdim=${2}
-stimdim=${3}
-stsize=${4}
+nmaps=${2}
+ntrials=${3}
+
 
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2
 
 printf "\n\n BARCODE complex maps task \n\n"
  
-srun python -u "/tigress/abeukers/wd/pm/exp-amtask-barcode.py" ${seed} ${instdim} ${stimdim} ${stsize} 
+srun python -u "/tigress/abeukers/wd/pm/exp-amtask-barcode.py" ${seed} ${nmaps} ${ntrials}
 
 printf "\n\nGPU profiling \n\n"
 sacct --format="elapsed,CPUTime,TotalCPU"

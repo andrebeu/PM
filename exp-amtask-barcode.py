@@ -9,17 +9,18 @@ from PM_tasks import *
 GPU = tr.cuda.is_available()
 
 seed = int(sys.argv[1])
-instdim = int(sys.argv[2])
-stimdim = int(sys.argv[3])
-wmsize = int(sys.argv[4])
+nmaps = int(sys.argv[2])
+ntrials = int(sys.argv[3])
 
-nmaps = 4
-ntrials = 2
+instdim = 10
+stimdim = 12
+wmsize = 6
+
 emsetting = 1
 switch = 1
 ntokens = 0
 ## defines training curriculum
-nepsL = [0,30000]
+nepsL = [1000,99000]
 curr = '_'.join([str(i) for i in nepsL])
 
 fdir = 'model_data/amtask-barcode/'
@@ -96,6 +97,7 @@ np.save(fdir+fname+'-trsc',trsc)
 tr.save(net.state_dict(),fdir+fname+'-model.pt')
 
 print('EVAL')
+net.emk='conj'
 neps_ev = 500
 ntrials_ev = 15
 trlen_ev = 5

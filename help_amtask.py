@@ -16,7 +16,7 @@ def mov_avg(arr,wind):
 maxsoftmax = lambda ulog: tr.argmax(tr.softmax(ulog,-1),-1)
 
 
-def run_net(net,task,neps,ntrials,trlen,training=True):
+def run_net(net,task,neps,ntrials,trlen,training=True,verb=True):
   '''
   returns score [neps,ntrials,nmaps+trlen]
   '''
@@ -38,7 +38,7 @@ def run_net(net,task,neps,ntrials,trlen,training=True):
       optiop.zero_grad()
       loss.backward(retain_graph=True)
       optiop.step()
-    if ep%(neps/5)==0:
+    if verb and ep%(neps/5)==0:
       print(ep/neps,score_t.mean())
   score = score.reshape(neps,ntrials,trlen+task.nmaps)
   return score
