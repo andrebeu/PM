@@ -24,6 +24,7 @@ class TaskArbitraryMaps():
     self.stimdim = stimdim
     self.sample_emat()
 
+
   def sample_emat(self):
     self.emat = np.random.uniform(0,1,[self.ntokens,self.stimdim])
     self.emat = tr.Tensor(self.emat)
@@ -33,7 +34,7 @@ class TaskArbitraryMaps():
       # self.emat = self.emat[np.random.permutation(np.arange(self.ntokens))]
       self.emat = np.random.permutation(self.emat)
 
-  def gen_ep_data(self,ntrials,trlen):
+  def gen_ep_data(self,ntrials,trlen,return_trial_flag=False):
     """ 
     instruction (i_input)
     stimulus_token (x_input)
@@ -79,11 +80,17 @@ class TaskArbitraryMaps():
     for trialn,x_input_trial in enumerate(x_input): 
       if self.switchmaps: self.resort_emat()
       s_input[trialn] = self.emat[x_input_trial]
+    
     # format output
     i_input = tr.unsqueeze(tr.LongTensor(i_input),1)
     s_input = tr.unsqueeze(tr.Tensor(np.concatenate(s_input)),1)
     yseq = tr.unsqueeze(tr.LongTensor(x_input.reshape(-1)),1)
-    return i_input,s_input,yseq
+    if return_trial_flag:
+      tr_flag = np.concatenate([i*np.ones(self.nmaps+trlen) for i in range(ntrials)])
+      tr_flag = tr.unsqueeze(tr.LongTensor(tr_flag),1)
+      return tr_flag,i_input,s_input,yseq,
+    else:
+      return i_input,s_input,yseq
 
 
 class TaskDualPM():

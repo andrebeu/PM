@@ -12,7 +12,6 @@ declare -a nmaps_arr=(4 5 6)
 declare -a ntrials_arr=(2 3 4 6)
 declare -a switch_arr=(1 0)
 
-
 for seed in {0..19}; do 
   for nmaps in "${nmaps_arr[@]}"; do 
     for ntrials in "${ntrials_arr[@]}"; do 

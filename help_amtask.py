@@ -6,6 +6,9 @@ import itertools
 from PM_models import *
 from PM_tasks import *
 
+from scipy.stats import pearsonr
+from scipy.spatial import distance
+
 
 def mov_avg(arr,wind):
   MA = -np.ones(len(arr)-wind)
@@ -53,6 +56,49 @@ def run_net(net,task,neps,ntrials,trlen,training=True,verb=True,return_states=Fa
   if return_states:
     return score,states
   return score
+
+### RDM package
+
+
+dist_metric = 'cosine'
+compute_rdm = lambda M: distance.cdist(M,M,metric=dist_metric)
+
+def get_mean_sub_rdm(states):
+  ''' loop over epochs '''
+  neps,tsteps,stsize = states.shape
+  rdm = np.zeros([tsteps,tsteps])
+  for ep in range(neps):
+    rdm += compute_rdm(states[ep])
+  rdm = rdm/neps
+  return rdm
+
+def compute_rdms(states):
+  """ 
+  loop over nets and epochs 
+  given cstates [nnets,neps,tsteps,stsize]
+  computes TxT rsm for each subj (averaged over neps)
+  returns rsm per net [nnets,tsteps,tsteps]
+  """
+
+  # init 
+  nnets,neps,tsteps,stsize = states.shape
+  rsms = -np.ones([nnets,tsteps,tsteps])
+  # loop compute RSM
+  for sub in range(nnets):
+    sub_rsms = -np.ones([neps,tsteps,tsteps])
+    sub_state = states[sub]
+    for ep in range(neps):
+      sub_rsms[ep] = compute_rdm(sub_state[ep])
+    rsms[sub] = sub_rsms.mean(0)
+  return rsms
+
+def get_rdms_full(states):
+  ''' takes rdsm [nnets,neps,ntrials,seqlen,stsize]
+  returns [nnets,ntrials*seqlen,ntrials*seqlen]'''
+  nnets,neps,ntrials,seqlen,stsize = states.shape
+  states_full = np.concatenate([states[:,:,i,:,:] for i in range(ntrials)],-2)
+  return compute_rdms(states_full)
+
 
 
 ## load net for amtask-sweep1 

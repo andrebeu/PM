@@ -10,6 +10,116 @@ assumes first input is the PM cue
 
 tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
 
+class NetPureEM(tr.nn.Module):
+  """ 
+  arbitrary maps pureEM net, no LSTM
+  first hid layers takes instruction and trial flag (no stim)
+  stim useq to query EM
+  """
+  def __init__(self,wmsize=5,emsetting=1,seed=0,instdim=10,stimdim=10,debug=False):
+    super().__init__()
+    tr.manual_seed(seed)
+    # params
+    self.nmaps_max = 10
+    self.instdim = instdim
+    self.trdim = instdim
+    self.wmdim = wmsize
+    self.emdim = wmsize
+    # outdims
+    self.outdim = self.emdim+self.wmdim
+    self.smdim = self.nmaps_max+1 # unit 0 not used
+    # FF 
+    self.embed_instruct = tr.nn.Embedding(self.nmaps_max+1,self.instdim)
+    self.embed_trialflag = tr.nn.Embedding(2,self.trdim)
+    self.ff_hid1 = tr.nn.Linear(self.instdim+self.trdim,self.wmdim,bias=False) 
+    self.ff_hid2 = tr.nn.Linear(self.emdim+self.wmdim,self.outdim,bias=False) 
+    # ouput
+    self.ff_hid2ulog = tr.nn.Linear(self.outdim,self.smdim,bias=False)
+    # EM setting 
+    self.EMsetting = emsetting
+    self.debug = debug
+    self.emk = 'conj'
+    self.store_states = False
+    return None
+
+  def forward(self,tseq,iseq,sseq):
+    """ """
+    ep_len = len(iseq)
+    ntrials = 2
+    trlen = int(ep_len/ntrials)
+    # input pathways
+    inst = self.embed_instruct(iseq)
+    tflag = self.embed_trialflag(tseq)
+    hid1 = self.ff_hid1(tr.cat([tflag,inst],-1))
+    ## encode [hid1,x : hid1]
+    emK_full = tr.cat([hid1,sseq],-1)
+    for tr in range(ntrials):
+      for tstep in range(tr*trlen,(tr+1)*trlen):
+        emK_full
+
+
+    print(hid1.shape) # [len(tseq),1,wimdim]
+    # saving states
+    statesL = []
+    # initialize EM, LSTM, and outputs
+    self.EM_key,self.EM_value = [],[]
+    emoutputs = -tr.ones(ep_len,1,self.emdim)
+    # loop over time
+    for tstep in range(ep_len):
+      if self.debug: 
+        print()
+      
+      if self.store_states:
+        states_t = np.stack([h_lstm.detach().numpy(),c_lstm.detach().numpy()],)
+        statesL.append(states_t)
+      # EM retrieval and encoding
+      # em key
+      emk = tr.cat([stim[tstep],h_lstm],-1)
+      emv_encode = h_lstm
+      if (iseq[tstep]==0):
+        em_output_t = self.retrieve(emk)
+        wm_output_t = h_lstm
+        # wm_output_t = tr.zeros_like(h_lstm)
+      else:
+        self.encode(emk,emv_encode)
+        em_output_t = tr.zeros_like(emv_encode)
+        wm_output_t = h_lstm
+      # output layer
+      if self.debug:
+        print('st',sseq[tstep,0,0].data)
+        print('wm',h_lstm[0,0].data)
+        print('em',em_output_t[0,0].data)
+      outputs[tstep] = tr.cat([stim[tstep],wm_output_t,em_output_t],-1)
+    ## output path
+    if self.store_states:
+      self.states = np.stack(statesL).squeeze()
+    if tr.cuda.is_available():
+      outputs = outputs.cuda()
+    if self.out_hiddim:
+      outputs = self.out_hid(outputs).relu()
+    yhat_ulog = self.ff_hid2ulog(outputs)
+    return yhat_ulog
+
+  def retrieve(self,emquery):
+    emquery = emquery.detach().cpu().numpy()
+    EM_K = np.concatenate(self.EM_key)
+    qkdist = pairwise_distances(emquery,EM_K,metric='cosine').squeeze().round(3)
+    if self.debug:
+      print('qkdist2',qkdist)
+      print()
+    retrieve_index = qkdist.argmin()
+    em_output = tr.Tensor(self.EM_value[retrieve_index])
+    if tr.cuda.is_available():
+      em_output = em_output.cuda()
+    return em_output
+
+  def encode(self,emk,emv):
+    emk = emk.detach().cpu().numpy()
+    emv = emv.detach().cpu().numpy()
+    self.EM_key.append(emk)
+    self.EM_value.append(emv)
+    return None
+
 
 class NetBarCode(tr.nn.Module):
   """ 
@@ -72,7 +182,7 @@ class NetBarCode(tr.nn.Module):
         print()
       h_lstm,c_lstm = self.lstm(percept[tstep],(h_lstm,c_lstm))
       if self.store_states:
-        states_t = np.stack([h_lstm.detach().numpy(),c_lstm.detach().numpy()],)
+        states_t = np.stack([h_lstm.detach().cpu().numpy(),c_lstm.detach().cpu().numpy()])
         statesL.append(states_t)
       # EM retrieval and encoding
       if (self.EMsetting>0): 
