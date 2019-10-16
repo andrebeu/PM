@@ -102,6 +102,7 @@ tr.save(net.state_dict(),fdir+fname+'-model.pt')
 
 ## eval
 print('EVAL')
+task.switchmaps=True
 net.emk='conj'
 net.store_states=True
 neps_ev = 500
