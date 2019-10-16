@@ -19,7 +19,7 @@ emsetting = 1
 
 ntokens = 0
 ## defines training curriculum
-nepsL = [1000,99000]
+nepsL = [1000,39000]
 curr = '_'.join([str(i) for i in nepsL])
 
 fdir = 'model_data/amtask-barcode/'
