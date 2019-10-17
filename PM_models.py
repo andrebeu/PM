@@ -129,33 +129,29 @@ class NetBarCode(tr.nn.Module):
     super().__init__()
     tr.manual_seed(seed)
     # params
-    self.nmaps_max = 10
+    self.nmaps_max = 20
     self.instdim = instdim
     self.stimdim = stimdim
     self.wmdim = wmsize
-    self.emdim = wmsize
-    ## optional hidden layers
-    self.inst_hiddim = 0 
-    self.stim_hiddim = 0
-    self.out_hiddim = 1 
+    self.hiddim = wmsize
+    self.emdim = self.hiddim
     ##
-    self.outdim = self.stimdim+self.wmdim+self.emdim
+    self.outdim = self.hiddim+self.wmdim+self.emdim
     self.smdim = self.nmaps_max+1 # unit 0 not used
-    # input pathways
+    # input 
     self.embed_instruct = tr.nn.Embedding(self.nmaps_max+1,self.instdim)
-    self.inst_hid = tr.nn.Linear(self.instdim,self.instdim,bias=False) 
     self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=False)
-    self.stim_hid = tr.nn.Linear(self.stimdim,self.stimdim,bias=False) 
-    # main LSTM
+    # hid ff and lstm
+    self.ff_hid = tr.nn.Linear(self.stimdim+self.instdim,self.hiddim,bias=False) 
     self.lstm = tr.nn.LSTMCell(self.instdim+self.stimdim,self.wmdim)
     self.init_lstm = tr.nn.Parameter(tr.rand(2,1,self.wmdim),requires_grad=True)
     # ouput
     self.out_hid = tr.nn.Linear(self.outdim,self.outdim,bias=False)
     self.ff_hid2ulog = tr.nn.Linear(self.outdim,self.smdim,bias=False)
     # EM setting 
+    self.emk_weights = [2,0]
     self.EMsetting = emsetting
     self.debug = debug
-    self.emk = 'conj'
     self.store_states = False
     return None
 
@@ -165,11 +161,9 @@ class NetBarCode(tr.nn.Module):
     # input pathways
     inst = self.embed_instruct(iseq)
     stim = self.ff_stim(sseq).relu()
-    if self.inst_hiddim:
-      inst = self.inst_hid(inst).relu()
-    if self.stim_hiddim:
-      stim = self.stim_hid(stim).relu()
+    # cat and feed forward percept
     percept = tr.cat([inst,stim],-1)
+    hid_ff = self.ff_hid(percept).relu()
     # saving states
     statesL = []
     # initialize EM, LSTM, and outputs
@@ -184,48 +178,66 @@ class NetBarCode(tr.nn.Module):
       if self.store_states:
         states_t = np.stack([h_lstm.detach().cpu().numpy(),c_lstm.detach().cpu().numpy()])
         statesL.append(states_t)
-      # EM retrieval and encoding
+      ## EM retrieval and encoding
       if (self.EMsetting>0): 
-        # em key
-        if self.emk=='stim':
-          emk = tr.cat([stim[tstep]],-1)
-        elif self.emk=='conj':
-          emk = tr.cat([stim[tstep],h_lstm],-1)
-        emv_encode = h_lstm
+        # em key (encode and query)
+        emkL = [stim[tstep],h_lstm]
+        # test phase
         if (iseq[tstep]==0):
-          em_output_t = self.retrieve(emk)
+          em_output_t = self.retrieve_conj(emkL)
           wm_output_t = h_lstm
-          # wm_output_t = tr.zeros_like(h_lstm)
+        # instruction phase
         else:
-          self.encode(emk,emv_encode)
-          em_output_t = tr.zeros_like(emv_encode)
+          # em value
+          emv = hid_ff[tstep]
+          self.encode_conj(emkL,emv)
+          em_output_t = emv
           wm_output_t = h_lstm
       else: 
         em_output_t = tr.zeros_like(h_lstm)
         wm_output_t = h_lstm
       # output layer
-      if self.debug:
-        print('st',sseq[tstep,0,0].data)
-        print('wm',h_lstm[0,0].data)
-        print('em',em_output_t[0,0].data)
-      outputs[tstep] = tr.cat([stim[tstep],wm_output_t,em_output_t],-1)
+      outputs[tstep] = tr.cat([hid_ff[tstep],wm_output_t,em_output_t],-1)
     ## output path
     if self.store_states:
       self.states = np.stack(statesL).squeeze()
     if tr.cuda.is_available():
       outputs = outputs.cuda()
-    if self.out_hiddim:
-      outputs = self.out_hid(outputs).relu()
+    outputs = self.out_hid(outputs).relu()
     yhat_ulog = self.ff_hid2ulog(outputs)
     return yhat_ulog
+
+  def encode_conj(self,emkL,emv):
+    ''' conjunctive keys '''
+    emkL = [emk.detach().cpu().numpy() for emk in emkL]
+    emv = emv.detach().cpu().numpy()
+    self.EM_key.append(emkL)
+    self.EM_value.append(emv)
+    return None
+
+  def retrieve_conj(self,emqueryL):
+    ''' conjunctive keys '''
+    ## loop over elements of conjunction 
+    # (dimensions of memory - each dimension is a vector)
+    # calculate qk_distances on each dimension 
+    emk_weights = self.emk_weights
+    qkdist = -np.ones([len(emqueryL),len(self.EM_key)])
+    for emk_dim in range(len(emqueryL)):
+      emquery = emqueryL[emk_dim].detach().cpu().numpy()
+      emK = np.concatenate([emk[emk_dim] for emk in self.EM_key],0)
+      qkdist[emk_dim] = pairwise_distances(emquery,emK,metric='cosine').squeeze().round(3)
+    # combine qkdist of different dimensions with weights
+    qkdist = np.dot(emk_weights,qkdist)
+    # retrieve
+    retrieve_index = qkdist.argmin()
+    memory = tr.Tensor(self.EM_value[retrieve_index])
+    if tr.cuda.is_available(): memory = memory.cuda()
+    return memory
 
   def retrieve(self,emquery):
     emquery = emquery.detach().cpu().numpy()
     EM_K = np.concatenate(self.EM_key)
     qkdist = pairwise_distances(emquery,EM_K,metric='cosine').squeeze().round(3)
-    if self.debug:
-      print('qkdist2',qkdist)
-      print()
     retrieve_index = qkdist.argmin()
     em_output = tr.Tensor(self.EM_value[retrieve_index])
     if tr.cuda.is_available():
