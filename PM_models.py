@@ -228,7 +228,9 @@ class NetBarCode(tr.nn.Module):
     ## loop over elements of conjunction 
     # (dimensions of memory - each dimension is a vector)
     # calculate qk_distances on each dimension 
-    qkdist = -np.ones([len(emqueryL),len(self.EM_key)])
+    qkdist = -tr.ones(len(emqueryL),len(self.EM_key))
+    if tr.cuda.is_available(): 
+      qkdist.cuda()
     for emk_dim in range(len(emqueryL)):
       emquery = emqueryL[emk_dim].detach().cpu().numpy()
       emK = np.concatenate([emk[emk_dim] for emk in self.EM_key],0)
