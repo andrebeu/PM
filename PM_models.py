@@ -228,14 +228,15 @@ class NetBarCode(tr.nn.Module):
     ## loop over elements of conjunction 
     # (dimensions of memory - each dimension is a vector)
     # calculate qk_distances on each dimension 
-    qkdist = -tr.ones(len(emqueryL),len(self.EM_key))
+    qkdist = -np.ones([len(emqueryL),len(self.EM_key)])
     for emk_dim in range(len(emqueryL)):
       emquery = emqueryL[emk_dim].detach().cpu().numpy()
       emK = np.concatenate([emk[emk_dim] for emk in self.EM_key],0)
       qkdist[emk_dim] = pairwise_distances(emquery,emK,metric='cosine').squeeze()
     # combine qkdist of different dimensions with weights
+    qkdist = tr.Tensor(qkdist)
     if tr.cuda.is_available(): 
-      qkdist.cuda()
+      tr.Tensor(qkdist).cuda()
     qkdist = tr.matmul(self.emk_weights,tr.Tensor(qkdist))
     ## retrieve mean
     if self.retrieve_mode=='blend':
