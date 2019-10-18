@@ -125,7 +125,7 @@ class NetBarCode(tr.nn.Module):
   """ 
   arbitrary maps EM net 
   """
-  def __init__(self,wmsize=5,emsetting=1,seed=0,instdim=10,stimdim=10,debug=False):
+  def __init__(self,wmsize=5,emsetting=1,seed=0,instdim=10,stimdim=10,init_emkw=[1,0],debug=False):
     super().__init__()
     tr.manual_seed(seed)
     # params
@@ -149,10 +149,15 @@ class NetBarCode(tr.nn.Module):
     self.out_hid = tr.nn.Linear(self.outdim,self.outdim,bias=False)
     self.ff_hid2ulog = tr.nn.Linear(self.outdim,self.smdim,bias=False)
     # EM setting 
-    self.emk_weights = [2,0]
+    self.retrieve_mode = 'argmin'
+    self.train_emk_weights = False
+    self.emk_weights = tr.nn.Parameter(tr.Tensor(init_emkw),
+      requires_grad=self.train_emk_weights)
     self.EMsetting = emsetting
     self.debug = debug
     self.store_states = False
+    # self.emact = tr.nn.Softplus(beta=20)
+    self.emact = lambda x: -tr.log(x)
     return None
 
   def forward(self,iseq,sseq):
@@ -173,7 +178,7 @@ class NetBarCode(tr.nn.Module):
     # loop over time
     for tstep in range(ep_len):
       if self.debug: 
-        print()
+        print(sseq[tstep,0,0])
       h_lstm,c_lstm = self.lstm(percept[tstep],(h_lstm,c_lstm))
       if self.store_states:
         states_t = np.stack([h_lstm.detach().cpu().numpy(),c_lstm.detach().cpu().numpy()])
@@ -182,9 +187,10 @@ class NetBarCode(tr.nn.Module):
       if (self.EMsetting>0): 
         # em key (encode and query)
         emkL = [stim[tstep],h_lstm]
-        # test phase
+        # response phase
         if (iseq[tstep]==0):
           em_output_t = self.retrieve_conj(emkL)
+          if tr.cuda.is_available(): memory = memory.cuda()
           wm_output_t = h_lstm
         # instruction phase
         else:
@@ -216,22 +222,27 @@ class NetBarCode(tr.nn.Module):
     return None
 
   def retrieve_conj(self,emqueryL):
-    ''' conjunctive keys '''
+    ''' conjunctive EM keys 
+    '''
     ## loop over elements of conjunction 
     # (dimensions of memory - each dimension is a vector)
     # calculate qk_distances on each dimension 
-    emk_weights = self.emk_weights
     qkdist = -np.ones([len(emqueryL),len(self.EM_key)])
     for emk_dim in range(len(emqueryL)):
       emquery = emqueryL[emk_dim].detach().cpu().numpy()
       emK = np.concatenate([emk[emk_dim] for emk in self.EM_key],0)
-      qkdist[emk_dim] = pairwise_distances(emquery,emK,metric='cosine').squeeze().round(3)
+      qkdist[emk_dim] = 2-pairwise_distances(emquery,emK,metric='cosine').squeeze()
     # combine qkdist of different dimensions with weights
-    qkdist = np.dot(emk_weights,qkdist)
-    # retrieve
-    retrieve_index = qkdist.argmin()
-    memory = tr.Tensor(self.EM_value[retrieve_index])
-    if tr.cuda.is_available(): memory = memory.cuda()
+    qkdist = tr.matmul(self.emk_weights,tr.Tensor(qkdist))
+    ## retrieve mean
+    if self.retrieve_mode=='blend':
+      qkdist = self.emact(qkdist)
+      memory = tr.matmul(qkdist,tr.Tensor(self.EM_value).squeeze()).unsqueeze(0)
+    ## retrieve nearest
+    if self.retrieve_mode=='argmin':
+      retrieve_index = qkdist.argmax()
+      memory = tr.Tensor(self.EM_value[retrieve_index])
+    
     return memory
 
   def retrieve(self,emquery):

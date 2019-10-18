@@ -9,7 +9,7 @@ wd_dir="/tigress/abeukers/wd/pm"
 ##
 
 declare -a nmaps_arr=(4 5 6)
-declare -a ntrials_arr=(2 3)
+declare -a ntrials_arr=(4 5)
 declare -a switch_arr=(1 0)
 declare -a wmsize_arr=(4 5 6)
 
