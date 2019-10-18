@@ -236,7 +236,7 @@ class NetBarCode(tr.nn.Module):
     # combine qkdist of different dimensions with weights
     qkdist = tr.Tensor(qkdist)
     if tr.cuda.is_available(): 
-      tr.Tensor(qkdist).cuda()
+      qkdist.cuda()
     qkdist = tr.matmul(self.emk_weights,tr.Tensor(qkdist))
     ## retrieve mean
     if self.retrieve_mode=='blend':
