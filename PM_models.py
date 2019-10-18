@@ -125,7 +125,8 @@ class NetBarCode(tr.nn.Module):
   """ 
   arbitrary maps EM net 
   """
-  def __init__(self,wmsize=5,emsetting=1,seed=0,instdim=10,stimdim=10,init_emkw=[1,0],debug=False):
+  def __init__(self,wmsize=5,emsetting=1,seed=0,
+    instdim=10,stimdim=10,init_emkw=[1,0],debug=False):
     super().__init__()
     tr.manual_seed(seed)
     # params
@@ -190,7 +191,7 @@ class NetBarCode(tr.nn.Module):
         # response phase
         if (iseq[tstep]==0):
           em_output_t = self.retrieve_conj(emkL)
-          if tr.cuda.is_available(): memory = memory.cuda()
+
           wm_output_t = h_lstm
         # instruction phase
         else:
@@ -242,6 +243,8 @@ class NetBarCode(tr.nn.Module):
     if self.retrieve_mode=='argmin':
       retrieve_index = qkdist.argmin()
       memory = tr.Tensor(self.EM_value[retrieve_index]) 
+    if tr.cuda.is_available(): 
+      memory = memory.cuda()
     return memory
 
   def retrieve(self,emquery):
