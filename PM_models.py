@@ -231,7 +231,7 @@ class NetBarCode(tr.nn.Module):
     for emk_dim in range(len(emqueryL)):
       emquery = emqueryL[emk_dim].detach().cpu().numpy()
       emK = np.concatenate([emk[emk_dim] for emk in self.EM_key],0)
-      qkdist[emk_dim] = 2-pairwise_distances(emquery,emK,metric='cosine').squeeze()
+      qkdist[emk_dim] = pairwise_distances(emquery,emK,metric='cosine').squeeze()
     # combine qkdist of different dimensions with weights
     qkdist = tr.matmul(self.emk_weights,tr.Tensor(qkdist))
     ## retrieve mean
@@ -240,9 +240,8 @@ class NetBarCode(tr.nn.Module):
       memory = tr.matmul(qkdist,tr.Tensor(self.EM_value).squeeze()).unsqueeze(0)
     ## retrieve nearest
     if self.retrieve_mode=='argmin':
-      retrieve_index = qkdist.argmax()
-      memory = tr.Tensor(self.EM_value[retrieve_index])
-    
+      retrieve_index = qkdist.argmin()
+      memory = tr.Tensor(self.EM_value[retrieve_index]) 
     return memory
 
   def retrieve(self,emquery):

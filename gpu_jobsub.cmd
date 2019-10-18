@@ -20,7 +20,7 @@ module load cudnn/cuda-9.1/7.1.2
 
 printf "\n\n BARCODE2 complex maps task \n\n"
  
-srun python -u "/tigress/abeukers/wd/pm/exp-amtask-barcode2.py" ${wmsize} ${nmaps} ${switch} ${ntrials} ${seed}
+srun python -u "/tigress/abeukers/wd/pm/exp-amtask_barcode_split.py" ${wmsize} ${nmaps} ${switch} ${ntrials} ${seed}
 
 printf "\n\nGPU profiling \n\n"
 sacct --format="elapsed,CPUTime,TotalCPU"
