@@ -61,6 +61,7 @@ def run_net(net,task,neps,ntrials,trlen,training=True,verb=True,return_states=Fa
   exp_len = ntrials*(task.nmaps+trlen)
   score = -np.ones([neps,exp_len])
   states = -np.ones([neps,exp_len,2,net.wmdim])
+  net.store_states = return_states
   for ep in range(neps):
     # forward prop
     iseq,xseq,ytarget = task.gen_ep_data(ntrials,trlen)
@@ -69,7 +70,7 @@ def run_net(net,task,neps,ntrials,trlen,training=True,verb=True,return_states=Fa
       xseq = xseq.cuda()
       ytarget = ytarget.cuda()
     yhat_ulog = net(iseq,xseq)
-    if net.store_states:
+    if return_states:
       states_ep = net.states
       states[ep] = net.states
     # eval
@@ -91,7 +92,8 @@ def run_net(net,task,neps,ntrials,trlen,training=True,verb=True,return_states=Fa
   return score
 
 
-trsc,states = run_net(net,task,neps_tr,ntrials,trlen_tr,training=True,verb=True,return_states=True)
+trsc,states = run_net(net,task,neps_tr,ntrials,trlen_tr,
+                training=True,verb=True,return_states=True)
 
 np.save(fdir+fpath+'-trsc',trsc)
 np.save(fdir+fpath+'-states',states)

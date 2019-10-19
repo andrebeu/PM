@@ -36,7 +36,7 @@ def run_net(net,task,neps,ntrials,trlen,training=True,verb=True,return_states=Fa
       xseq = xseq.cuda()
       ytarget = ytarget.cuda()
     yhat_ulog = net(iseq,xseq)
-    if net.store_states:
+    if return_states:
       states_ep = net.states
       states[ep] = net.states
     # eval
@@ -57,14 +57,22 @@ def run_net(net,task,neps,ntrials,trlen,training=True,verb=True,return_states=Fa
     return score,states
   return score
 
+
 ### RDM package
 
 
-dist_metric = 'cosine'
-compute_rdm = lambda M: distance.cdist(M,M,metric=dist_metric)
+
+
+def compute_rdm(states,dist_metric='cosine'):
+  ''' input states [tsteps,stsize]
+  returns rdm [tsteps,tsteps]
+  '''
+  return distance.cdist(states,states,metric=dist_metric)
 
 def get_mean_sub_rdm(states):
-  ''' loop over epochs '''
+  ''' loop over epochs 
+  input states [neps,tsteps,stsize]
+  returns rdm [tsteps,tsteps]'''
   neps,tsteps,stsize = states.shape
   rdm = np.zeros([tsteps,tsteps])
   for ep in range(neps):
