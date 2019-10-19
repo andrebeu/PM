@@ -5,7 +5,7 @@ import numpy as np
 
 from PM_models import *
 from PM_tasks import *
-
+# from help_amtask import *
 
 wmsize = int(sys.argv[1])
 nmaps = int(sys.argv[2])
@@ -13,20 +13,13 @@ switch = int(sys.argv[3])
 ntrials = int(sys.argv[4])
 seed = int(sys.argv[5])
 
-# net params
 emsetting = 1
 instdim = 10
 stimdim = 12
+
 emk_weights = [1,.0005]
 
-# train params
-neps_tr = 50000
-trlen_tr = 10
-
-fdir = 'model_data/amtask_barcode_split/'
-
-fpath = 'wmsize_%i-nmaps_%i-switch_%i-ntrials_%i-trlen_%i-seed_%i-wm_emkw_%f'%(
-          wmsize,nmaps,switch,ntrials,trlen_tr,seed,emk_weights[1])
+fpath = 'wmsize_%i-nmaps_%i-switch_%i-ntrials_%i-seed_%i'%(wmsize,nmaps,switch,ntrials,seed)
 print(fpath)
 
 net = NetBarCode(
@@ -35,10 +28,9 @@ net = NetBarCode(
         seed=seed,
         instdim=instdim,
         stimdim=stimdim,
-        init_emkw=emk_weights,
-        debug=False
-)
+        debug=False)
 
+net.emk_weights = emk_weights  # stim,lstm
 
 if tr.cuda.is_available():
   net.cuda()
@@ -61,7 +53,6 @@ def run_net(net,task,neps,ntrials,trlen,training=True,verb=True,return_states=Fa
   exp_len = ntrials*(task.nmaps+trlen)
   score = -np.ones([neps,exp_len])
   states = -np.ones([neps,exp_len,2,net.wmdim])
-  net.store_states = return_states
   for ep in range(neps):
     # forward prop
     iseq,xseq,ytarget = task.gen_ep_data(ntrials,trlen)
@@ -70,7 +61,7 @@ def run_net(net,task,neps,ntrials,trlen,training=True,verb=True,return_states=Fa
       xseq = xseq.cuda()
       ytarget = ytarget.cuda()
     yhat_ulog = net(iseq,xseq)
-    if return_states:
+    if net.store_states:
       states_ep = net.states
       states[ep] = net.states
     # eval
@@ -92,10 +83,12 @@ def run_net(net,task,neps,ntrials,trlen,training=True,verb=True,return_states=Fa
   return score
 
 
-trsc,states = run_net(net,task,neps_tr,ntrials,trlen_tr,
-                training=True,verb=True,return_states=True)
+neps_tr = 50000
 
-np.save(fdir+fpath+'-trsc',trsc)
-np.save(fdir+fpath+'-states',states)
+trlen_tr = 1
+task.switchmaps = True
+trsc = run_net(net,task,neps_tr,ntrials,trlen_tr,training=True,verb=True)
+
+np.save('model_data/amtask-barcode2/'+fpath,trsc)
 
 
