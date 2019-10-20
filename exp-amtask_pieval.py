@@ -21,7 +21,7 @@ stimdim = 12
 emk_weights = [1,.0005]
 
 # train params
-neps_tr = 50 ###
+neps_tr = 50000 
 
 fdir = 'model_data/amtask_pieval/'
 
