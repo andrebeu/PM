@@ -2,7 +2,7 @@
 
 #SBATCH --gpu-accounting
 
-#SBATCH -t 6:00:00			# runs for 48 hours (max)  
+#SBATCH -t 20:00:00			# runs for 48 hours (max)  
 #SBATCH -c 8				# number of cores 4
 #SBATCH -N 1				# node count 
 #SBATCH --ntasks-per-node=1
@@ -13,14 +13,15 @@ wmsize=${1}
 nmaps=${2}
 switch=${3}
 ntrials=${4}
-seed=${5}
+trlen=${6}
+seed=${6}
 
 module load anaconda3/4.4.0
 module load cudnn/cuda-9.1/7.1.2
 
-printf "\n\n BARCODE2 complex maps task \n\n"
+printf "\n\n PIEVAL complex maps task \n\n"
  
-srun python -u "/tigress/abeukers/wd/pm/exp-amtask_barcode_split.py" ${wmsize} ${nmaps} ${switch} ${ntrials} ${seed}
+srun python -u "/tigress/abeukers/wd/pm/exp-amtask_pieval.py" ${wmsize} ${nmaps} ${switch} ${ntrials} ${trlen} ${seed}
 
 printf "\n\nGPU profiling \n\n"
 sacct --format="elapsed,CPUTime,TotalCPU"
