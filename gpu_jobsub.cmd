@@ -13,7 +13,7 @@ wmsize=${1}
 nmaps=${2}
 switch=${3}
 ntrials=${4}
-trlen=${6}
+trlen=${5}
 seed=${6}
 
 module load anaconda3/4.4.0
