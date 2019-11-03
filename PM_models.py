@@ -204,9 +204,9 @@ class NetBarCode(tr.nn.Module):
     for tstep in range(ep_len):
       if self.debug: print(sseq[tstep,0,0])
       h_lstm,c_lstm = self.lstm(percept[tstep],(h_lstm,c_lstm))
-      # if self.store_states:
-      #   states_t = np.stack([h_lstm.detach().cpu().numpy(),c_lstm.detach().cpu().numpy()])
-      #   statesL.append(states_t)
+      if self.store_states:
+        states_t = np.stack([h_lstm.detach().cpu().numpy(),c_lstm.detach().cpu().numpy()])
+        statesL.append(states_t)
       ## EM retrieval and encoding
       if (self.EMsetting>0): 
         # em key (encode and query)
@@ -228,8 +228,8 @@ class NetBarCode(tr.nn.Module):
       # output layer
       outputs[tstep] = tr.cat([hid_ff[tstep],wm_output_t,em_output_t],-1)
     ## output path
-    # if self.store_states: self.states = np.stack(statesL).squeeze()
-    # if tr.cuda.is_available(): outputs = outputs.cuda()
+    if self.store_states: self.states = np.stack(statesL).squeeze()
+    if tr.cuda.is_available(): outputs = outputs.cuda()
     outputs = self.out_hid(outputs).relu()
     yhat_ulog = self.ff_hid2ulog(outputs)
     return yhat_ulog
