@@ -100,6 +100,7 @@ neps_ev = 1000
 ntrials_ev = 20
 trlen_ev = 10
 
+task.switchmaps = True
 evsc,states = run_net(net,task,neps_ev,ntrials_ev,trlen_ev,
                 training=False,verb=True,return_states=True)
 

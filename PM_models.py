@@ -80,17 +80,17 @@ class NetFFN(tr.nn.Module):
 
   def encode_conj(self,emkL,emv):
     ''' conjunctive keys '''
+    import random
     emkL = [emk.detach().cpu().numpy() for emk in emkL]
     emv = emv.detach().cpu().numpy()
-    self.EM_key = list(self.EM_key)
-    self.EM_value = list(self.EM_value)
     self.EM_key.append(emkL)
     self.EM_value.append(emv)
     # shuffle memory list
-    idx = np.arange(len(self.EM_key))
-    np.random.shuffle(idx)
-    self.EM_key = np.array(self.EM_key)[idx]
-    self.EM_value = np.array(self.EM_value)[idx]
+    EMzip = list(zip(self.EM_key, self.EM_value))
+    random.shuffle(EMzip)
+    EMK,EMV = zip(*EMzip)
+    self.EM_key = list(EMK)
+    self.EM_value = list(EMV)
     return None
 
   def retrieve_conj(self,emqueryL):
