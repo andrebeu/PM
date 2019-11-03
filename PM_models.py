@@ -10,115 +10,139 @@ assumes first input is the PM cue
 
 tr_uniform = lambda a,b,shape: tr.FloatTensor(*shape).uniform_(a,b)
 
-class NetPureEM(tr.nn.Module):
+class NetFFN(tr.nn.Module):
   """ 
-  arbitrary maps pureEM net, no LSTM
-  first hid layers takes instruction and trial flag (no stim)
-  stim useq to query EM
+  uses cannonical representation of task structure 
+  provided as input instead of learning shifting policy
+  CR is used to organize memory keys into buckets
   """
-  def __init__(self,wmsize=5,emsetting=1,seed=0,instdim=10,stimdim=10,debug=False):
+  def __init__(self,stsize=5,seed=0,instdim=10,stimdim=10,debug=False):
     super().__init__()
     tr.manual_seed(seed)
     # params
     self.nmaps_max = 10
     self.instdim = instdim
-    self.trdim = instdim
-    self.wmdim = wmsize
-    self.emdim = wmsize
+    self.stimdim = stimdim
+    self.stsize = stsize
+    self.emdim = stsize
+    self.wmdim = stsize
     # outdims
-    self.outdim = self.emdim+self.wmdim
+    self.outdim = self.emdim+self.stsize
     self.smdim = self.nmaps_max+1 # unit 0 not used
     # FF 
     self.embed_instruct = tr.nn.Embedding(self.nmaps_max+1,self.instdim)
-    self.embed_trialflag = tr.nn.Embedding(2,self.trdim)
-    self.ff_hid1 = tr.nn.Linear(self.instdim+self.trdim,self.wmdim,bias=False) 
-    self.ff_hid2 = tr.nn.Linear(self.emdim+self.wmdim,self.outdim,bias=False) 
+    self.ff_stim = tr.nn.Linear(self.stimdim,self.stimdim,bias=False) 
+    self.ff_percept = tr.nn.Linear(self.stimdim+self.instdim,self.stsize,bias=False) 
     # ouput
     self.ff_hid2ulog = tr.nn.Linear(self.outdim,self.smdim,bias=False)
     # EM setting 
-    self.EMsetting = emsetting
+    self.retrieve_mode='argmin'
+    self.emk_weights = [1.,0.005]
     self.debug = debug
-    self.emk = 'conj'
     self.store_states = False
     return None
-
-  def forward(self,tseq,iseq,sseq):
+  
+  def forward(self,iseq,sseq):
     """ """
+    #
     ep_len = len(iseq)
-    ntrials = 2
-    trlen = int(ep_len/ntrials)
+    # get drift/shift cannonical rep
+    # used to organize EM keys into buckets
+    cr = self.get_cr(iseq)
     # input pathways
     inst = self.embed_instruct(iseq)
-    tflag = self.embed_trialflag(tseq)
-    hid1 = self.ff_hid1(tr.cat([tflag,inst],-1))
-    ## encode [hid1,x : hid1]
-    emK_full = tr.cat([hid1,sseq],-1)
-    for tr in range(ntrials):
-      for tstep in range(tr*trlen,(tr+1)*trlen):
-        emK_full
-
-
-    print(hid1.shape) # [len(tseq),1,wimdim]
-    # saving states
-    statesL = []
-    # initialize EM, LSTM, and outputs
+    stim = self.ff_stim(sseq).relu()
+    # cat and FF percept
+    percept = self.ff_percept(tr.cat([inst,stim],-1)).relu()
+    ## EM loops: initialize EM, and outputs
     self.EM_key,self.EM_value = [],[]
     emoutputs = -tr.ones(ep_len,1,self.emdim)
-    # loop over time
+    # EM loop
     for tstep in range(ep_len):
-      if self.debug: 
-        print()
-      
-      if self.store_states:
-        states_t = np.stack([h_lstm.detach().numpy(),c_lstm.detach().numpy()],)
-        statesL.append(states_t)
-      # EM retrieval and encoding
-      # em key
-      emk = tr.cat([stim[tstep],h_lstm],-1)
-      emv_encode = h_lstm
-      if (iseq[tstep]==0):
-        em_output_t = self.retrieve(emk)
-        wm_output_t = h_lstm
-        # wm_output_t = tr.zeros_like(h_lstm)
-      else:
-        self.encode(emk,emv_encode)
-        em_output_t = tr.zeros_like(emv_encode)
-        wm_output_t = h_lstm
-      # output layer
-      if self.debug:
-        print('st',sseq[tstep,0,0].data)
-        print('wm',h_lstm[0,0].data)
-        print('em',em_output_t[0,0].data)
-      outputs[tstep] = tr.cat([stim[tstep],wm_output_t,em_output_t],-1)
-    ## output path
-    if self.store_states:
-      self.states = np.stack(statesL).squeeze()
-    if tr.cuda.is_available():
-      outputs = outputs.cuda()
-    if self.out_hiddim:
-      outputs = self.out_hid(outputs).relu()
+      if self.debug: print(sseq[tstep,0,0])
+      # em key (encode and query)
+      emkL = [stim[tstep],cr[tstep]]
+      # response phase
+      if (iseq[tstep]==0): # retrieve
+        emoutputs[tstep] = self.retrieve_conj(emkL)
+      # instruction phase
+      else: # encode
+        emv_encode = percept[tstep]
+        self.encode_conj(emkL,emv_encode)
+        emoutputs[tstep] = emv_encode
+    # output layer
+    outputs = tr.cat([emoutputs,percept],-1)
+    if tr.cuda.is_available(): outputs = outputs.cuda()
+    # output path
+    # outputs = self.out_hid(outputs).relu()
     yhat_ulog = self.ff_hid2ulog(outputs)
     return yhat_ulog
 
-  def retrieve(self,emquery):
-    emquery = emquery.detach().cpu().numpy()
-    EM_K = np.concatenate(self.EM_key)
-    qkdist = pairwise_distances(emquery,EM_K,metric='cosine').squeeze().round(3)
-    if self.debug:
-      print('qkdist2',qkdist)
-      print()
-    retrieve_index = qkdist.argmin()
-    em_output = tr.Tensor(self.EM_value[retrieve_index])
-    if tr.cuda.is_available():
-      em_output = em_output.cuda()
-    return em_output
-
-  def encode(self,emk,emv):
-    emk = emk.detach().cpu().numpy()
+  def encode_conj(self,emkL,emv):
+    ''' conjunctive keys '''
+    emkL = [emk.detach().cpu().numpy() for emk in emkL]
     emv = emv.detach().cpu().numpy()
-    self.EM_key.append(emk)
+    self.EM_key = list(self.EM_key)
+    self.EM_value = list(self.EM_value)
+    self.EM_key.append(emkL)
     self.EM_value.append(emv)
+    # shuffle memory list
+    idx = np.arange(len(self.EM_key))
+    np.random.shuffle(idx)
+    self.EM_key = np.array(self.EM_key)[idx]
+    self.EM_value = np.array(self.EM_value)[idx]
     return None
+
+  def retrieve_conj(self,emqueryL):
+    ''' conjunctive EM keys 
+    '''
+    ## loop over elements of conjunction 
+    # (dimensions of memory - each dimension is a vector)
+    # calculate qk_distances on each dimension 
+    qkdist = -np.ones([len(emqueryL),len(self.EM_key)])
+    for emk_dim in range(len(emqueryL)):
+      emquery = emqueryL[emk_dim].detach().cpu().numpy()
+      emK = np.concatenate([emk[emk_dim] for emk in self.EM_key],0)
+      qkdist[emk_dim] = pairwise_distances(emquery,emK,metric='cosine').squeeze()
+    # combine qkdist of different dimensions with weights
+    qkdist = tr.Tensor(qkdist)
+    if tr.cuda.is_available(): qkdist = qkdist.cuda()
+    qkdist = tr.matmul(tr.Tensor(self.emk_weights),qkdist)
+    ## retrieve mean
+    if self.retrieve_mode=='blend':
+      qkdist = self.emact(qkdist)
+      memory = tr.matmul(qkdist,tr.Tensor(self.EM_value).squeeze()).unsqueeze(0)
+    ## retrieve nearest
+    if self.retrieve_mode=='argmin':
+      retrieve_index = qkdist.argmin()
+      memory = tr.Tensor(self.EM_value[retrieve_index]) 
+    if tr.cuda.is_available(): 
+      memory = memory.cuda()
+    return memory
+
+  def get_cr(self,iseq):
+    ''' returns CR that shifts at block boundaries
+    and drifts otherwise
+    '''
+    ntrials = np.count_nonzero(iseq==1)
+    ep_len = len(iseq)
+    block_len = int(ep_len/ntrials)
+    drift_noise = lambda: np.random.normal(0,.1,ntrials)
+    cr = np.zeros([ep_len,ntrials])
+    d = -1
+    for tstep in range(ep_len):
+      shift = tstep%block_len==0
+      if shift:
+        d += 1
+        cr_t = np.zeros(ntrials)
+        cr_t[d] = 1
+        cr_t += drift_noise()
+      else:
+        # drift
+        cr_t = cr_tm1 + drift_noise()
+      cr_tm1 = cr_t
+      cr[tstep] = cr_t
+    return tr.unsqueeze(tr.Tensor(cr),1)
 
 
 class NetBarCode(tr.nn.Module):
@@ -178,12 +202,11 @@ class NetBarCode(tr.nn.Module):
     h_lstm,c_lstm = self.init_lstm
     # loop over time
     for tstep in range(ep_len):
-      if self.debug: 
-        print(sseq[tstep,0,0])
+      if self.debug: print(sseq[tstep,0,0])
       h_lstm,c_lstm = self.lstm(percept[tstep],(h_lstm,c_lstm))
-      if self.store_states:
-        states_t = np.stack([h_lstm.detach().cpu().numpy(),c_lstm.detach().cpu().numpy()])
-        statesL.append(states_t)
+      # if self.store_states:
+      #   states_t = np.stack([h_lstm.detach().cpu().numpy(),c_lstm.detach().cpu().numpy()])
+      #   statesL.append(states_t)
       ## EM retrieval and encoding
       if (self.EMsetting>0): 
         # em key (encode and query)
@@ -191,7 +214,6 @@ class NetBarCode(tr.nn.Module):
         # response phase
         if (iseq[tstep]==0):
           em_output_t = self.retrieve_conj(emkL)
-
           wm_output_t = h_lstm
         # instruction phase
         else:
@@ -206,10 +228,8 @@ class NetBarCode(tr.nn.Module):
       # output layer
       outputs[tstep] = tr.cat([hid_ff[tstep],wm_output_t,em_output_t],-1)
     ## output path
-    if self.store_states:
-      self.states = np.stack(statesL).squeeze()
-    if tr.cuda.is_available():
-      outputs = outputs.cuda()
+    # if self.store_states: self.states = np.stack(statesL).squeeze()
+    # if tr.cuda.is_available(): outputs = outputs.cuda()
     outputs = self.out_hid(outputs).relu()
     yhat_ulog = self.ff_hid2ulog(outputs)
     return yhat_ulog
@@ -249,23 +269,6 @@ class NetBarCode(tr.nn.Module):
     if tr.cuda.is_available(): 
       memory = memory.cuda()
     return memory
-
-  def retrieve(self,emquery):
-    emquery = emquery.detach().cpu().numpy()
-    EM_K = np.concatenate(self.EM_key)
-    qkdist = pairwise_distances(emquery,EM_K,metric='cosine').squeeze().round(3)
-    retrieve_index = qkdist.argmin()
-    em_output = tr.Tensor(self.EM_value[retrieve_index])
-    if tr.cuda.is_available():
-      em_output = em_output.cuda()
-    return em_output
-
-  def encode(self,emk,emv):
-    emk = emk.detach().cpu().numpy()
-    emv = emv.detach().cpu().numpy()
-    self.EM_key.append(emk)
-    self.EM_value.append(emv)
-    return None
 
 
 class NetAMEM(tr.nn.Module):

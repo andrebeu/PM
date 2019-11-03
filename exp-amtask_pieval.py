@@ -96,21 +96,13 @@ trsc = run_net(net,task,neps_tr,ntrials,trlen_tr,
 
 np.save(fdir+fpath+'-trsc',trsc)
 
-
-task = TaskArbitraryMaps(
-          nmaps=nmaps,
-          switchmaps=1,
-          ntokens_surplus=0,
-          seed=seed,
-          stimdim=stimdim)
-
 neps_ev = 1000
 ntrials_ev = 20
 trlen_ev = 10
 
 evsc,states = run_net(net,task,neps_ev,ntrials_ev,trlen_ev,
-                training=True,verb=True,return_states=True)
+                training=False,verb=True,return_states=True)
 
 np.save(fdir+fpath+'-evsc',evsc)
 np.save(fdir+fpath+'-states_ev',states)
-
+tr.save(net.state_dict(),fdir+fpath+'-model.pt')
