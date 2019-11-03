@@ -130,6 +130,7 @@ class TaskArbitraryMaps():
       stim_seq: [time,1,stimdim]
       yseq: [time,1]
     """
+    self.resort_emat()
     ## instruction
     # for each trial, generate random instruction encoding sequence
     i_encoding_input = np.array([
