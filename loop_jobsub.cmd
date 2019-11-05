@@ -8,8 +8,8 @@ stamp=$(date +"%m%d%H%M%S")
 wd_dir="/tigress/abeukers/wd/pm"
 ##
 
-declare -a nmaps_arr=(4 5 6 8)
-declare -a ntrials_arr=(2 3)
+declare -a nmaps_arr=(6 8)
+declare -a ntrials_arr=(5 10)
 declare -a switch_arr=(1 0)
 declare -a wmsize_arr=(4 6)
 declare -a trlen_arr=(6 10)
